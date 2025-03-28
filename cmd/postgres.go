@@ -6,7 +6,6 @@ import (
 	"os"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
@@ -67,33 +66,18 @@ func postgresUp(cmd *cobra.Command, args []string) {
 }
 
 func (a *AppCtx) loadPostgresSecrets() (*postgresCredentials, error) {
-	var keys = []string{
-		"/Postgres/Replicator/username",
-		"/Postgres/Replicator/password",
-		"/Postgres/Root/username",
-		"/Postgres/Root/password",
-		"/Postgres/Bouncer/username",
-		"/Postgres/Bouncer/password",
-	}
-	var prefixedKeys = make([]string, 0, len(keys))
-	for _, key := range keys {
-		prefixedKeys = append(prefixedKeys, a.Vault.Prefix+strings.TrimSpace(key))
-	}
-	secretsResponse, err := a.Vault.Client.Secrets().ResolveAll(a.Context, prefixedKeys)
+	secrets, err := a.resolveSecrets(
+		[]string{
+			"/Postgres/Replicator/username",
+			"/Postgres/Replicator/password",
+			"/Postgres/Root/username",
+			"/Postgres/Root/password",
+			"/Postgres/Bouncer/username",
+			"/Postgres/Bouncer/password",
+		},
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve secrets: %w", err)
-	}
-	var secrets = make([]string, len(prefixedKeys))
-	for _, key := range prefixedKeys {
-		secret := secretsResponse.IndividualResponses[key]
-		if secret.Error != nil {
-			return nil, fmt.Errorf("error: %s", secret.Error.Type)
-		}
-		cleanedSecret := strings.TrimSpace(secret.Content.Secret)
-		cleanedSecret = strings.TrimFunc(cleanedSecret, func(r rune) bool {
-			return unicode.IsControl(r)
-		})
-		secrets = append(secrets, cleanedSecret)
+		return nil, fmt.Errorf("failed to resolve postgres credentials: %w", err)
 	}
 	var credentials = postgresCredentials{
 		Replicator: userPasswordPair{
@@ -333,11 +317,11 @@ func (c *postgresCredentials) startBouncer(app *AppCtx) error {
 		Cmd: []string{"/bin/sh", "-c", fmt.Sprintf("echo '%s %s' > /etc/pgbouncer/userlist.txt", c.Bouncer.User, c.Bouncer.Password)},
 	})
 	if err != nil {
-		return fmt.Errorf("failed to create exec command: %w", err)
+		return fmt.Errorf("failed to create exec command for bouncer: %w", err)
 	}
 	err = app.Docker.Client.ContainerExecStart(app.Context, save_user_list.ID, container.ExecStartOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to start exec command: %w", err)
+		return fmt.Errorf("failed to start exec command for bouncer: %w", err)
 	}
 	return nil
 }

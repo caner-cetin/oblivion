@@ -2,13 +2,10 @@ package cmd
 
 import (
 	"embed"
-	"os"
-	"os/exec"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
-	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/go-connections/nat"
 	v1 "github.com/moby/docker-image-spec/specs-go/v1"
 	"github.com/rs/zerolog/log"
@@ -51,59 +48,6 @@ func staticUp(cmd *cobra.Command, args []string) {
 			return
 		}
 	}
-	app.Spinner.Prefix = "checking for content volume"
-	exists, err = app.volumeExists("static_content")
-	if err != nil {
-		log.Error().Err(err).Msg("failed to check if volume exists")
-		return
-	}
-	if !exists {
-		_, err := os.Stat("/var/www/servers/cansu.dev/static")
-		if os.IsNotExist(err) {
-			app.Spinner.Stop()
-			log.Warn().Msg("directory /var/www/servers/cansu.dev/static doesn't exist. root privileges needed to create it.")
-
-			cmd := exec.Command("sudo", "mkdir", "-p", "/var/www/servers/cansu.dev/static")
-			cmd.Stdin = os.Stdin
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-
-			if err := cmd.Run(); err != nil {
-				log.Error().Err(err).Msg("Failed to create directory with sudo")
-				return
-			}
-
-			// also set permissions to allow your user to write to it
-			chownCmd := exec.Command("sudo", "chown", "-R", os.Getenv("USER"), "/var/www/servers/cansu.dev/static")
-			chownCmd.Stdin = os.Stdin
-			chownCmd.Stdout = os.Stdout
-			chownCmd.Stderr = os.Stderr
-
-			if err := chownCmd.Run(); err != nil {
-				log.Error().Err(err).Msg("Failed to set directory permissions")
-				return
-			}
-
-			app.Spinner.Start()
-		} else if err != nil {
-			log.Error().Err(err).Str("path", "/var/www/servers/cansu.dev/static").Msg("Failed to check if directory exists")
-			return
-		}
-		app.Spinner.Prefix = "creating content volume"
-		_, err = app.Docker.Client.VolumeCreate(app.Context, volume.CreateOptions{
-			Driver: "local",
-			DriverOpts: map[string]string{
-				"type":   "none",
-				"o":      "bind",
-				"device": "/var/www/servers/cansu.dev/static",
-			},
-			Name: "static_content",
-		})
-		if err != nil {
-			log.Error().Err(err).Msg("failed to create static volume")
-			return
-		}
-	}
 	app.Spinner.Prefix = "creating static container"
 	resp, err := app.Docker.Client.ContainerCreate(app.Context,
 		&container.Config{
@@ -120,8 +64,8 @@ func staticUp(cmd *cobra.Command, args []string) {
 			},
 			Mounts: []mount.Mount{
 				{
-					Type:   mount.TypeVolume,
-					Source: "static_content",
+					Type:   mount.TypeBind,
+					Source: "/var/www/servers/cansu.dev/static",
 					Target: "/var/www/servers/cansu.dev/static/",
 				},
 			},
