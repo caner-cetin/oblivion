@@ -1,4 +1,4 @@
-module github.com/cansu.dev/oblivion
+module github.com/caner-cetin/oblivion
 
 go 1.24.0
 

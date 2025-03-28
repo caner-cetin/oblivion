@@ -40,18 +40,18 @@ func kumaUp(cmd *cobra.Command, args []string) {
 			AttachStderr: true,
 			AttachStdin:  false,
 			OpenStdin:    false,
-			Image:        "louislam/uptime-kuma:1",
+			Image:        cfg.Kuma.ImageName,
 			ExposedPorts: nat.PortSet{
 				nat.Port("3001/tcp"): struct{}{},
 			},
 		},
 		&container.HostConfig{
 			RestartPolicy: container.RestartPolicy{Name: container.RestartPolicyAlways},
-			PortBindings:  nat.PortMap{nat.Port("3001/tcp"): []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: "3001"}}},
+			PortBindings:  nat.PortMap{nat.Port("3001/tcp"): []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: cfg.Kuma.Port}}},
 			Mounts: []mount.Mount{
 				{
 					Type:   mount.TypeVolume,
-					Source: "kuma_kuma_data",
+					Source: cfg.Kuma.DataVolume,
 					Target: "/app/data",
 				},
 			},
@@ -60,7 +60,7 @@ func kumaUp(cmd *cobra.Command, args []string) {
 			EndpointsConfig: app.getNetworks(cfg.Networks.DatabaseNetworkName, cfg.Networks.UptimeNetworkName),
 		},
 		nil,
-		"uptime",
+		cfg.Kuma.ContainerName,
 	)
 	if err != nil {
 		app.Spinner.Stop()
@@ -79,7 +79,7 @@ func kumaUp(cmd *cobra.Command, args []string) {
 
 func kumaDown(cmd *cobra.Command, args []string) {
 	app := GetApp(cmd)
-	sum, err := app.Docker.Client.ContainerList(app.Context, container.ListOptions{Filters: filters.NewArgs(filters.KeyValuePair{Key: "name", Value: "uptime"})})
+	sum, err := app.Docker.Client.ContainerList(app.Context, container.ListOptions{Filters: filters.NewArgs(filters.KeyValuePair{Key: "name", Value: cfg.Kuma.ContainerName})})
 	if err != nil {
 		log.Error().Err(err).Send()
 		return

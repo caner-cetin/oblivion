@@ -1,6 +1,6 @@
 package main
 
-import "github.com/cansu.dev/oblivion/cmd"
+import "github.com/caner-cetin/oblivion/cmd"
 
 func main() {
 	cmd.Execute()

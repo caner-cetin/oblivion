@@ -23,8 +23,8 @@ import (
 var staticBuildFiles embed.FS
 
 var (
-	staticChmodCmd = &cobra.Command{
-		Use: "chmod",
+	staticPermissionsCmd = &cobra.Command{
+		Use: "permissions",
 		Run: WrapCommandWithResources(staticChmod, ResourceConfig{Resources: []ResourceType{}}),
 	}
 	staticUpCmd = &cobra.Command{
@@ -37,7 +37,7 @@ var (
 )
 
 func getStaticCmd() *cobra.Command {
-	staticCmd.AddCommand(staticChmodCmd)
+	staticCmd.AddCommand(staticPermissionsCmd)
 	staticCmd.AddCommand(staticUpCmd)
 	return staticCmd
 }
@@ -48,14 +48,14 @@ func staticUp(cmd *cobra.Command, args []string) {
 	app.Spinner.Start()
 	app.Spinner.Prefix = "checking for nginx image"
 	defer app.Spinner.Stop()
-	exists, err := app.imageExists("cansu.dev-static-nginx")
+	exists, err := app.imageExists(cfg.Static.ImageName)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to check if volume exists")
 		return
 	}
 	if !exists {
 		app.Spinner.Prefix = "building image..."
-		if err := app.buildImage(staticBuildFiles, "config/static", "cansu.dev-static-nginx", "nginx.Dockerfile"); err != nil {
+		if err := app.buildImage(staticBuildFiles, "config/static", cfg.Static.ImageName, "nginx.Dockerfile"); err != nil {
 			log.Error().Err(err).Send()
 			return
 		}
@@ -63,7 +63,7 @@ func staticUp(cmd *cobra.Command, args []string) {
 	app.Spinner.Prefix = "creating static container"
 	resp, err := app.Docker.Client.ContainerCreate(app.Context,
 		&container.Config{
-			Image:        "cansu.dev-static-nginx",
+			Image:        cfg.Static.ImageName,
 			AttachStdout: true,
 			AttachStderr: true,
 			AttachStdin:  false,
@@ -72,20 +72,20 @@ func staticUp(cmd *cobra.Command, args []string) {
 		},
 		&container.HostConfig{
 			PortBindings: nat.PortMap{
-				nat.Port("80/tcp"): []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: "44444"}},
+				nat.Port("80/tcp"): []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: cfg.Static.Port}},
 			},
 			Mounts: []mount.Mount{
 				{
 					Type:   mount.TypeBind,
-					Source: "/var/www/servers/cansu.dev/static",
-					Target: "/var/www/servers/cansu.dev/static/",
+					Source: cfg.Static.StaticPath,
+					Target: cfg.Static.StaticPath + "/",
 				},
 			},
 			RestartPolicy: container.RestartPolicy{Name: container.RestartPolicyAlways},
 		},
 		nil,
 		nil,
-		"file-server",
+		cfg.Static.ContainerName,
 	)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to create static container")
@@ -111,10 +111,10 @@ var nginx_healthcheck = &v1.HealthcheckConfig{
 }
 
 func staticChmod(cmd *cobra.Command, args []string) {
-	path := "/var/www/servers/cansu.dev/static"
-	uploader, err := user.Lookup("caner")
+	path := cfg.Static.StaticPath
+	uploader, err := user.Lookup(cfg.Static.UploaderUser)
 	if err != nil {
-		log.Error().Err(err).Msgf("failed to get user %s", "caner")
+		log.Error().Err(err).Msgf("failed to get user %s", cfg.Static.UploaderUser)
 		return
 	}
 	uploader_gid, _ := strconv.Atoi(uploader.Gid)

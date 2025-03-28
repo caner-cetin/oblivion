@@ -9,7 +9,7 @@ import (
 
 	"github.com/1password/onepassword-sdk-go"
 	"github.com/briandowns/spinner"
-	"github.com/cansu.dev/oblivion/internal"
+	"github.com/caner-cetin/oblivion/internal"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/rs/zerolog/log"

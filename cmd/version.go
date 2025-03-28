@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/cansu.dev/oblivion/internal"
+	"github.com/caner-cetin/oblivion/internal"
 	"github.com/spf13/cobra"
 )
 
