@@ -2,11 +2,14 @@ package cmd
 
 import (
 	"embed"
+	"os"
+	"os/exec"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/go-connections/nat"
+	"github.com/fatih/color"
 	v1 "github.com/moby/docker-image-spec/specs-go/v1"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -16,6 +19,10 @@ import (
 var staticBuildFiles embed.FS
 
 var (
+	staticChmodCmd = &cobra.Command{
+		Use: "chmod",
+		Run: WrapCommandWithResources(staticChmod, ResourceConfig{Resources: []ResourceType{}}),
+	}
 	staticUpCmd = &cobra.Command{
 		Use: "up",
 		Run: WrapCommandWithResources(staticUp, ResourceConfig{Resources: []ResourceType{ResourceDocker}}),
@@ -26,6 +33,7 @@ var (
 )
 
 func getStaticCmd() *cobra.Command {
+	staticCmd.AddCommand(staticChmodCmd)
 	staticCmd.AddCommand(staticUpCmd)
 	return staticCmd
 }
@@ -96,4 +104,39 @@ var nginx_healthcheck = &v1.HealthcheckConfig{
 	Interval: 5 * time.Second,
 	Timeout:  10 * time.Second,
 	Retries:  10,
+}
+
+func staticChmod(cmd *cobra.Command, args []string) {
+	// ill move all of this to config later i promise
+	path := "/var/www/servers/cansu.dev/static"
+	// nginx inside the alpine container runs as root
+	// roots uid 0 gid 0
+	if err := os.Chown(path, 0, 0); err != nil {
+		log.Error().Err(err).Msg("failed to set ownership for docker user")
+		return
+	}
+	if err := os.Chown(path, 0, 1000); err != nil {
+		log.Error().Err(err).Msg("failed to set ownership for host user")
+	}
+	// RWX for owner
+	// RWX for group
+	// no permissions for others
+	//
+	// combined with setgid so that new files created in static directory will inherit the group ownership of the parent directory
+	if err := os.Chmod(path, 2770); err != nil {
+		log.Error().Err(err).Msg("failed to set permissions for server owner")
+		return
+	}
+	//  -d operations apply to the default ACL
+	//  -m modify the current ACL(s) of file(s)
+	// 	permissions are same as 770
+	acl_cmd := exec.Command("sudo", "setfacl", "-d -m u::rwx,g::rwx,o::---", path)
+	acl_cmd.Stdout = os.Stdout
+	acl_cmd.Stderr = os.Stderr
+	if err := acl_cmd.Run(); err != nil {
+		log.Error().Err(err).Msg("failed to set ACL list")
+		return
+	}
+	color.Green("permissions and ownership set for %s", path)
+
 }
