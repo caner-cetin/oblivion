@@ -1,30 +1,35 @@
-[docker]
-socket = "unix:///var/run/docker.sock"
-[postgres]
-db = "postgres"
-primary_port = "5432"
-bouncer_port = "6432"
-primary_name = "cansu.dev-pg-primary"
-replica_name = "cansu.dev-pg-replica"
-bouncer_name = "cansu.dev-pg-bouncer"
-primary_image = "postgres:17"
-replica_image = "postgres:17"
-bouncer_image = "edoburu/pgbouncer"
-primary_data_vol = "pg_primary_data"
-replica_data_vol = "pg_replica_data"
-[networks]
-database_network_name = "database_bridge"
-uptime_network_name = "uptime_bridge"
-[onepass]
-vault_name = "Server"
-[static]
-uploader_user = "caner"
-static_path = "/var/www/servers/cansu.dev/static"
-port = "44444"
-image_name = "cansu.dev-static-nginx"
-container_name = "file-server"
-[kuma]
-container_name = "uptime"
-image_name = "louislam/uptime-kuma:1"
-port = "3001"
-data_volume = "kuma_kuma_data"
+[Docker]
+Socket = 'unix:///var/run/docker.sock'
+
+[Networks]
+database_network_name = 'database_bridge'
+uptime_network_name = 'uptime_bridge'
+
+[Postgres]
+db = 'postgres'
+primary_port = '5432'
+bouncer_port = '6432'
+primary_name = 'cansu.dev-pg-primary'
+replica_name = 'cansu.dev-pg-replica'
+bouncer_name = 'cansu.dev-pg-bouncer'
+primary_image = 'postgres:17'
+replica_image = 'postgres:17'
+bouncer_image = 'edoburu/pgbouncer'
+primary_data_vol = 'pg_primary_data'
+replica_data_vol = 'pg_replica_data'
+
+[Onepass]
+vault_name = 'Server'
+
+[Static]
+uploader_user = 'caner'
+static_path = '/var/www/servers/cansu.dev/static'
+port = '44444'
+image_name = 'cansu.dev-static-nginx'
+container_name = 'file-server'
+
+[Kuma]
+container_name = 'uptime'
+image_name = 'louislam/uptime-kuma:1'
+port = '3001'
+data_volume = 'kuma_kuma_data'

@@ -281,3 +281,12 @@ func (a *AppCtx) containerExists(name string) (bool, error) {
 	}
 	return len(containers) > 0, nil
 }
+
+
+func (a *AppCtx) networkExists(name string) (bool, error) {
+	networks, err := a.Docker.Client.ContainerList(a.Context, container.ListOptions{Filters: filters.NewArgs(filters.KeyValuePair{Key: "Name", Value: name})})
+	if err != nil {
+		return false, fmt.Errorf("failed to list networks: %w", err)
+	}
+	return len(networks) > 0, err
+}

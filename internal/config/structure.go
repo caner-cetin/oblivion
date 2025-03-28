@@ -4,7 +4,7 @@ type Root struct {
 	Docker   DockerConfig
 	Networks NetworkConfig
 	Postgres PostgresConfig
-	Onepass  OnepasswordConfig `toml:"onepass"`
+	Onepass  OnepasswordConfig
 	Static   StaticConfig
 	Kuma     KumaConfig
 }
