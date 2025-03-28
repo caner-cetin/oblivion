@@ -4,6 +4,8 @@ import (
 	"embed"
 	"os"
 	"os/exec"
+	"os/user"
+	"strconv"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
@@ -109,22 +111,32 @@ var nginx_healthcheck = &v1.HealthcheckConfig{
 func staticChmod(cmd *cobra.Command, args []string) {
 	// ill move all of this to config later i promise
 	path := "/var/www/servers/cansu.dev/static"
+	uploader, err := user.Lookup("caner")
+	if err != nil {
+		log.Error().Err(err).Msgf("failed to get user %s", "caner")
+		return
+	}
+	uploader_uid, _ := strconv.Atoi(uploader.Uid)
+	uploader_gid, _ := strconv.Atoi(uploader.Gid)
 	// nginx inside the alpine container runs as root
 	// roots uid 0 gid 0
 	if err := os.Chown(path, 0, 0); err != nil {
-		log.Error().Err(err).Msg("failed to set ownership for docker user")
+		log.Error().Err(err).Int("uid", 0).Int("gid", 0).Msg("failed to set ownership for root user and root group")
 		return
 	}
-	if err := os.Chown(path, 0, 1000); err != nil {
-		log.Error().Err(err).Msg("failed to set ownership for host user")
+	if err := os.Chown(path, uploader_uid, uploader_gid); err != nil {
+		log.Error().Err(err).Int("uid", uploader_uid).Int("gid", uploader_gid).Msg("failed to set ownership for uploader user and group")
+	}
+	if err := os.Chown(path, 0, uploader_gid); err != nil {
+		log.Error().Err(err).Int("uid", 0).Int("gid", uploader_gid).Msg("failed to set ownership for root user and uploader group")
 	}
 	// RWX for owner
 	// RWX for group
-	// RX	 for others (nginx etc needs execute )
+	// RX	 for others (nginx etc needs execute)
 	//
 	// combined with setgid bit (2) so that new files created in static directory will inherit the group ownership of the parent directory
 	if err := os.Chmod(path, 2775); err != nil {
-		log.Error().Err(err).Msg("failed to set permissions for server owner")
+		log.Error().Err(err).Msg("failed to set permissions for folder")
 		return
 	}
 	//  -d operations apply to the default ACL
