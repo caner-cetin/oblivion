@@ -41,19 +41,16 @@ func initConfig() {
 	if cfgPath == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
-			log.Error().Err(err).Send()
-			return
+			log.Fatal().Err(err).Send()
 		}
 		cfgPath = filepath.Join(home, ".oblivion.toml")
 	}
 	contents, err := internal.ReadFile(cfgPath)
 	if err != nil {
-		log.Error().Err(err).Send()
-		return
+		log.Fatal().Err(err).Send()
 	}
 	cfg.SetDefaults()
 	if err := toml.Unmarshal(contents, cfg); err != nil {
 		log.Fatal().Err(err).Msg("failed to read config")
-		return
 	}
 }

@@ -130,7 +130,7 @@ func staticChmod(cmd *cobra.Command, args []string) {
 	//  -d operations apply to the default ACL
 	//  -m modify the current ACL(s) of file(s)
 	// 	permissions are same as 770
-	acl_cmd := exec.Command("sudo", "setfacl", "-d -m u::rwx,g::rwx,o::---", path)
+	acl_cmd := exec.Command("sudo", "setfacl", "-d", "-m", "u::rwx,g::rwx,o::---", path)
 	acl_cmd.Stdout = os.Stdout
 	acl_cmd.Stderr = os.Stderr
 	if err := acl_cmd.Run(); err != nil {
