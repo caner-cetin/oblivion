@@ -2,9 +2,11 @@ package cmd
 
 import (
 	"embed"
+	"fmt"
 	"os"
 	"os/exec"
 	"os/user"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -126,13 +128,15 @@ func staticChmod(cmd *cobra.Command, args []string) {
 	}
 	if err := os.Chown(path, uploader_uid, uploader_gid); err != nil {
 		log.Error().Err(err).Int("uid", uploader_uid).Int("gid", uploader_gid).Msg("failed to set ownership for uploader user and group")
+		return
 	}
 	if err := os.Chown(path, 0, uploader_gid); err != nil {
 		log.Error().Err(err).Int("uid", 0).Int("gid", uploader_gid).Msg("failed to set ownership for root user and uploader group")
+		return
 	}
 	// RWX for owner
 	// RWX for group
-	// RX	 for others (nginx etc needs execute)
+	// RWX	 for others (nginx etc needs execute)
 	//
 	// combined with setgid bit (2) so that new files created in static directory will inherit the group ownership of the parent directory
 	if err := os.Chmod(path, 2775); err != nil {
@@ -142,13 +146,30 @@ func staticChmod(cmd *cobra.Command, args []string) {
 	//  -d operations apply to the default ACL
 	//  -m modify the current ACL(s) of file(s)
 	// 	permissions are same as 770
-	acl_cmd := exec.Command("sudo", "setfacl", "-d", "-m", "u::rwx,g::rwx,o::r-x", path)
+	acl_cmd := exec.Command("sudo", "setfacl", "-R", "-d", "-m", "u::rwx,g::rwx,o::r-x", path)
 	acl_cmd.Stdout = os.Stdout
 	acl_cmd.Stderr = os.Stderr
 	if err := acl_cmd.Run(); err != nil {
 		log.Error().Err(err).Msg("failed to set ACL list")
 		return
 	}
+
+	if err := filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if err := os.Chown(path, uploader_uid, uploader_gid); err != nil {
+			return fmt.Errorf("failed to set permission for uid %d and gid %d", uploader_uid, uploader_gid)
+		}
+		if err := os.Chown(path, 0, uploader_gid); err != nil {
+			return fmt.Errorf("failed to set permission for uid %d and gid %d", 0, uploader_gid)
+		}
+		return os.Chown(path, 0, uploader_gid)
+	}); err != nil {
+		log.Error().Err(err).Msg("failed to set permission for file or folder")
+		return
+	}
+
 	color.Green("permissions and ownership set for %s", path)
 
 }
