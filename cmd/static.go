@@ -120,17 +120,17 @@ func staticChmod(cmd *cobra.Command, args []string) {
 	}
 	// RWX for owner
 	// RWX for group
-	// no permissions for others
+	// RX	 for others (nginx etc needs execute )
 	//
-	// combined with setgid so that new files created in static directory will inherit the group ownership of the parent directory
-	if err := os.Chmod(path, 2770); err != nil {
+	// combined with setgid bit (2) so that new files created in static directory will inherit the group ownership of the parent directory
+	if err := os.Chmod(path, 2775); err != nil {
 		log.Error().Err(err).Msg("failed to set permissions for server owner")
 		return
 	}
 	//  -d operations apply to the default ACL
 	//  -m modify the current ACL(s) of file(s)
 	// 	permissions are same as 770
-	acl_cmd := exec.Command("sudo", "setfacl", "-d", "-m", "u::rwx,g::rwx,o::---", path)
+	acl_cmd := exec.Command("sudo", "setfacl", "-d", "-m", "u::rwx,g::rwx,o::r-x", path)
 	acl_cmd.Stdout = os.Stdout
 	acl_cmd.Stderr = os.Stderr
 	if err := acl_cmd.Run(); err != nil {
