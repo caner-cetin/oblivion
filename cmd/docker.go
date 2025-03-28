@@ -6,6 +6,7 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -35,7 +36,7 @@ func (a *AppCtx) waitForContainerHealthWithConfig(containerID string, healthConf
 		a.Spinner.Prefix = fmt.Sprintf("polling for health, retry %d", i+1)
 		inspect, err := a.Docker.Client.ContainerInspect(a.Context, containerID)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to inspect container: %w", err)
 		}
 		if inspect.State != nil && inspect.State.Health != nil && inspect.State.Health.Status == types.Healthy {
 			log.Info().Msg("container is healthy")
@@ -84,7 +85,7 @@ func (a *AppCtx) readLogs(ctx context.Context, containerID string) {
 			},
 			logs)
 
-		if err != nil && err != io.EOF {
+		if err != nil && !errors.Is(err, io.EOF) {
 			logger.Error().Err(err).Msg("error reading container logs")
 		}
 		close(done)
@@ -119,7 +120,7 @@ func (w *containerLogWriter) Write(p []byte) (n int, err error) {
 	if w.lastByte == 0 || w.lastByte == '\n' {
 		_, err = w.Writer.Write(prefix_bytes)
 		if err != nil {
-			return 0, err
+			return 0, fmt.Errorf("failed to write prefix: %w", err)
 		}
 	}
 
@@ -128,11 +129,11 @@ func (w *containerLogWriter) Write(p []byte) (n int, err error) {
 		if b == '\n' && i < len(p)-1 {
 			_, err = w.Writer.Write(p[start : i+1])
 			if err != nil {
-				return 0, err
+				return 0, fmt.Errorf("failed to write line: %w", err)
 			}
 			_, err = w.Writer.Write(prefix_bytes)
 			if err != nil {
-				return 0, err
+				return 0, fmt.Errorf("failed to write prefix: %w", err)
 			}
 			start = i + 1
 		}
@@ -142,7 +143,7 @@ func (w *containerLogWriter) Write(p []byte) (n int, err error) {
 	if start < len(p) {
 		_, err = w.Writer.Write(p[start:])
 		if err != nil {
-			return 0, err
+			return 0, fmt.Errorf("failed to write remaining bytes: %w", err)
 		}
 	}
 	return len(p), nil
@@ -170,7 +171,7 @@ func (a *AppCtx) buildImage(fs embed.FS, dir string, image_tag string, dockerfil
 		Dockerfile: dockerfile,
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to build docker image: %w", err)
 	}
 	decoder := json.NewDecoder(response.Body)
 	for {
@@ -258,8 +259,7 @@ func (a *AppCtx) volumeExists(name string) (bool, error) {
 		Filters: filters.NewArgs(filters.Arg("name", name)),
 	})
 	if err != nil {
-		log.Error().Err(err).Msg("failed to check if volume exists")
-		return false, err
+		return false, fmt.Errorf("failed to list volumes: %w", err)
 	}
 	return len(resp.Volumes) > 0, nil
 }
@@ -269,8 +269,15 @@ func (a *AppCtx) imageExists(name string) (bool, error) {
 		Filters: filters.NewArgs(filters.Arg("reference", name)),
 	})
 	if err != nil {
-		log.Error().Err(err).Msg("failed to check if image exists")
-		return false, err
+		return false, fmt.Errorf("failed to list images: %w", err)
 	}
 	return len(resp) > 0, nil
+}
+
+func (a *AppCtx) containerExists(name string) (bool, error) {
+	containers, err := a.Docker.Client.ContainerList(a.Context, container.ListOptions{Filters: filters.NewArgs(filters.KeyValuePair{Key: "name", Value: name})})
+	if err != nil {
+		return false, fmt.Errorf("failed to list containers: %w", err)
+	}
+	return len(containers) > 0, nil
 }

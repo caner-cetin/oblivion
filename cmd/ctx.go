@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -91,7 +92,7 @@ func WrapCommandWithResources(fn func(cmd *cobra.Command, args []string), resour
 				appCtx.Docker.Networks[cfg.Networks.UptimeNetworkName] = &network.EndpointSettings{NetworkID: network_id}
 			}
 		}
-		appCtx.Spinner = spinner.New(spinner.CharSets[12], 100 * time.Millisecond)
+		appCtx.Spinner = spinner.New(spinner.CharSets[12], 100*time.Millisecond)
 		defer func() {
 			if appCtx.Docker.Client != nil {
 				if err := appCtx.Docker.Client.Close(); err != nil {
@@ -124,18 +125,18 @@ func (ctx *AppCtx) InitializeOnePass() error {
 		onepassword.WithIntegrationInfo("cansu-dev - Oblivion", internal.Version),
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create 1Password client: %w", err)
 	}
 	ctx.Vault.Client = client
 	ctx.Vault.Prefix = fmt.Sprintf("op://%s", cfg.Onepass.VaultName)
 	vaults, err := ctx.Vault.Client.Vaults().ListAll(ctx.Context)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to list 1Password vaults: %w", err)
 	}
 	for {
 		vault, err := vaults.Next()
 		if err != nil {
-			if err == onepassword.ErrorIteratorDone {
+			if errors.Is(err, onepassword.ErrorIteratorDone) {
 				break
 			}
 			return fmt.Errorf("error reading vaults: %w", err)
@@ -160,7 +161,7 @@ func NewDockerClient() (*client.Client, error) {
 	}
 	docker, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create docker client: %w", err)
 	}
 	return docker, nil
 }

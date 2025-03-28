@@ -52,5 +52,8 @@ func initConfig() {
 		return
 	}
 	cfg.SetDefaults()
-	toml.Unmarshal(contents, cfg)
+	if err := toml.Unmarshal(contents, cfg); err != nil {
+		log.Fatal().Err(err).Msg("failed to read config")
+		return
+	}
 }

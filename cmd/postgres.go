@@ -9,10 +9,10 @@ import (
 	"unicode"
 
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/go-connections/nat"
+	"github.com/fatih/color"
 	v1 "github.com/moby/docker-image-spec/specs-go/v1"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -81,9 +81,9 @@ func (a *AppCtx) loadPostgresSecrets() (*postgresCredentials, error) {
 	}
 	secretsResponse, err := a.Vault.Client.Secrets().ResolveAll(a.Context, prefixedKeys)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to resolve secrets: %w", err)
 	}
-	var secrets []string
+	var secrets = make([]string, len(prefixedKeys))
 	for _, key := range prefixedKeys {
 		secret := secretsResponse.IndividualResponses[key]
 		if secret.Error != nil {
@@ -113,12 +113,12 @@ func (a *AppCtx) loadPostgresSecrets() (*postgresCredentials, error) {
 }
 
 func (c *postgresCredentials) startPrimary(app *AppCtx) error {
-	containers, err := app.Docker.Client.ContainerList(app.Context, container.ListOptions{Filters: filters.NewArgs(filters.KeyValuePair{Key: "name", Value: "pg-primary"})})
+	exists, err := app.containerExists("pg-primary")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to check if primary container exists: %w", err)
 	}
-	if len(containers) > 0 {
-		log.Info().Msg("primary pg container running")
+	if exists {
+		color.Green("primary pg container running")
 		return nil
 	}
 	bouncer_init_sql := fmt.Sprintf(`
@@ -139,11 +139,14 @@ GRANT EXECUTE ON FUNCTION public.lookup(name) TO %s;
 	`, c.Bouncer.User, c.Bouncer.User, c.Bouncer.Password, c.Bouncer.User)
 	temp_bouncer_init_sql, err := os.CreateTemp(os.TempDir(), "temp-postgres-bouncer-init-*.sql")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create temp bouncer init sql file: %w", err)
 	}
 	defer temp_bouncer_init_sql.Close()
 	defer os.Remove(temp_bouncer_init_sql.Name())
-	io.Copy(temp_bouncer_init_sql, strings.NewReader(bouncer_init_sql))
+	_, err = io.Copy(temp_bouncer_init_sql, strings.NewReader(bouncer_init_sql))
+	if err != nil {
+		return fmt.Errorf("failed to copy bouncer init sql to temp file: %w", err)
+	}
 	response, err := app.Docker.Client.ContainerCreate(app.Context,
 		&container.Config{
 			AttachStdout: true,
@@ -193,12 +196,12 @@ GRANT EXECUTE ON FUNCTION public.lookup(name) TO %s;
 		nil,
 		"cansu.dev-pg-primary")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create primary postgres container: %w", err)
 	}
 	log.Info().Str("id", response.ID).Msg("created primary postgres container")
 	err = app.Docker.Client.ContainerStart(app.Context, response.ID, container.StartOptions{})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to start primary postgres container: %w", err)
 	}
 	cancel := app.spawnLogs(response.ID)
 	defer cancel()
@@ -209,12 +212,12 @@ GRANT EXECUTE ON FUNCTION public.lookup(name) TO %s;
 }
 
 func (c *postgresCredentials) startReplica(app *AppCtx) error {
-	containers, err := app.Docker.Client.ContainerList(app.Context, container.ListOptions{Filters: filters.NewArgs(filters.KeyValuePair{Key: "name", Value: "pg-replica"})})
+	exists, err := app.containerExists("pg-replica")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to check if replica container exists: %w", err)
 	}
-	if len(containers) > 0 {
-		log.Info().Msg("primary pg replica running")
+	if exists {
+		color.Green("replica pg container running")
 		return nil
 	}
 	response, err := app.Docker.Client.ContainerCreate(app.Context,
@@ -256,12 +259,12 @@ func (c *postgresCredentials) startReplica(app *AppCtx) error {
 		nil,
 		"cansu.dev-pg-replica")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create replica postgres container: %w", err)
 	}
 
 	err = app.Docker.Client.ContainerStart(app.Context, response.ID, container.StartOptions{})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to start replica postgres container: %w", err)
 	}
 	cancel := app.spawnLogs(response.ID)
 	defer cancel()
@@ -272,14 +275,12 @@ func (c *postgresCredentials) startReplica(app *AppCtx) error {
 }
 
 func (c *postgresCredentials) startBouncer(app *AppCtx) error {
-	containers, err := app.Docker.Client.ContainerList(app.Context, container.ListOptions{
-		Filters: filters.NewArgs(filters.KeyValuePair{Key: "name", Value: "pg-bouncer"}),
-	})
+	exists, err := app.containerExists("pg-bouncer")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to check if bouncer container exists: %w", err)
 	}
-	if len(containers) > 0 {
-		log.Info().Msg("pgbouncer container running")
+	if exists {
+		color.Green("pgbouncer container running")
 		return nil
 	}
 	response, err := app.Docker.Client.ContainerCreate(app.Context,
@@ -322,21 +323,21 @@ func (c *postgresCredentials) startBouncer(app *AppCtx) error {
 		"cansu.dev-pg-bouncer",
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create bouncer container: %w", err)
 	}
 	err = app.Docker.Client.ContainerStart(app.Context, response.ID, container.StartOptions{})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to start bouncer container: %w", err)
 	}
 	save_user_list, err := app.Docker.Client.ContainerExecCreate(app.Context, response.ID, container.ExecOptions{
 		Cmd: []string{"/bin/sh", "-c", fmt.Sprintf("echo '%s %s' > /etc/pgbouncer/userlist.txt", c.Bouncer.User, c.Bouncer.Password)},
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create exec command: %w", err)
 	}
 	err = app.Docker.Client.ContainerExecStart(app.Context, save_user_list.ID, container.ExecStartOptions{})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to start exec command: %w", err)
 	}
 	return nil
 }
