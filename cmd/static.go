@@ -139,7 +139,7 @@ func staticChmod(cmd *cobra.Command, args []string) {
 	// RWX	 for others (nginx etc needs execute)
 	//
 	// combined with setgid bit (2) so that new files created in static directory will inherit the group ownership of the parent directory
-	if err := os.Chmod(path, 2775); err != nil {
+	if err := os.Chmod(path, 2777); err != nil {
 		log.Error().Err(err).Msg("failed to set permissions for folder")
 		return
 	}
