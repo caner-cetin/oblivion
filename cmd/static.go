@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"embed"
+	"fmt"
 	"os"
 	"os/exec"
 	"os/user"
@@ -110,7 +111,6 @@ var nginx_healthcheck = &v1.HealthcheckConfig{
 }
 
 func staticChmod(cmd *cobra.Command, args []string) {
-	// ill move all of this to config later i promise
 	path := "/var/www/servers/cansu.dev/static"
 	uploader, err := user.Lookup("caner")
 	if err != nil {
@@ -118,18 +118,19 @@ func staticChmod(cmd *cobra.Command, args []string) {
 		return
 	}
 	uploader_gid, _ := strconv.Atoi(uploader.Gid)
-	// nginx inside the alpine container runs as root
-	// roots uid 0 gid 0
+
+	// root:uploader_group
 	if err := os.Chown(path, 0, uploader_gid); err != nil {
-		log.Error().Err(err).Int("uid", 0).Int("gid", uploader_gid).Msg("failed to set ownership")
+		log.Error().Err(err).Msg("failed to set ownership")
 		return
 	}
-	// RWX for owner
-	// RWX for group
-	// no permissions	 for others
-	//
-	// combined with setgid bit (2) so that new files created in static directory will inherit the group ownership of the parent directory
-	if err := os.Chmod(path, 2770); err != nil {
+
+	// 2775:
+	// 2000 - setgid bit
+	// 7 - full permissions for owner
+	// 7 - full permissions for group
+	// 5 - read and execute for others (nginx)
+	if err := os.Chmod(path, 2775); err != nil {
 		log.Error().Err(err).Msg("failed to set permissions")
 		return
 	}
@@ -138,16 +139,21 @@ func staticChmod(cmd *cobra.Command, args []string) {
 		if err != nil {
 			return err
 		}
-		return os.Chown(path, 0, uploader_gid)
+		if err := os.Chown(path, 0, uploader_gid); err != nil {
+			return fmt.Errorf("chown failed for %s: %w", path, err)
+		}
+		// for directories, same permissions as 2775 but without setgid
+		if info.IsDir() {
+			return os.Chmod(path, 0775)
+		}
+		// for files, rw for owner, rw for group, wx for anyone else
+		return os.Chmod(path, 0664)
 	}); err != nil {
-		log.Error().Err(err).Msg("failed to set recursive ownership")
+		log.Error().Err(err).Msg("failed to set recursive permissions")
 		return
 	}
 
-	//  -d operations apply to the default ACL
-	//  -m modify the current ACL(s) of file(s)
-	// 	permissions are same as 770
-	acl_cmd := exec.Command("sudo", "setfacl", "-R", "-d", "-m", "u::rwx,g::rwx,o::---", path)
+	acl_cmd := exec.Command("sudo", "setfacl", "-R", "-d", "-m", "u::rwx,g::rwx,o::r-x", path)
 	acl_cmd.Stdout = os.Stdout
 	acl_cmd.Stderr = os.Stderr
 	if err := acl_cmd.Run(); err != nil {
@@ -155,6 +161,5 @@ func staticChmod(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	color.Green("permissions and ownership set for %s", path)
-
+	color.Green("Permissions and ownership set for %s", path)
 }
