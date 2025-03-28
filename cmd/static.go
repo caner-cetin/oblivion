@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"embed"
-	"fmt"
 	"os"
 	"os/exec"
 	"os/user"
@@ -118,39 +117,20 @@ func staticChmod(cmd *cobra.Command, args []string) {
 		log.Error().Err(err).Msgf("failed to get user %s", "caner")
 		return
 	}
-	uploader_uid, _ := strconv.Atoi(uploader.Uid)
 	uploader_gid, _ := strconv.Atoi(uploader.Gid)
 	// nginx inside the alpine container runs as root
 	// roots uid 0 gid 0
-	if err := os.Chown(path, 0, 0); err != nil {
-		log.Error().Err(err).Int("uid", 0).Int("gid", 0).Msg("failed to set ownership for root user and root group")
-		return
-	}
-	if err := os.Chown(path, uploader_uid, uploader_gid); err != nil {
-		log.Error().Err(err).Int("uid", uploader_uid).Int("gid", uploader_gid).Msg("failed to set ownership for uploader user and group")
-		return
-	}
 	if err := os.Chown(path, 0, uploader_gid); err != nil {
-		log.Error().Err(err).Int("uid", 0).Int("gid", uploader_gid).Msg("failed to set ownership for root user and uploader group")
+		log.Error().Err(err).Int("uid", 0).Int("gid", uploader_gid).Msg("failed to set ownership")
 		return
 	}
 	// RWX for owner
 	// RWX for group
-	// RWX	 for others (nginx etc needs execute)
+	// no permissions	 for others
 	//
 	// combined with setgid bit (2) so that new files created in static directory will inherit the group ownership of the parent directory
-	if err := os.Chmod(path, 2777); err != nil {
-		log.Error().Err(err).Msg("failed to set permissions for folder")
-		return
-	}
-	//  -d operations apply to the default ACL
-	//  -m modify the current ACL(s) of file(s)
-	// 	permissions are same as 770
-	acl_cmd := exec.Command("sudo", "setfacl", "-R", "-d", "-m", "u::rwx,g::rwx,o::r-x", path)
-	acl_cmd.Stdout = os.Stdout
-	acl_cmd.Stderr = os.Stderr
-	if err := acl_cmd.Run(); err != nil {
-		log.Error().Err(err).Msg("failed to set ACL list")
+	if err := os.Chmod(path, 2770); err != nil {
+		log.Error().Err(err).Msg("failed to set permissions")
 		return
 	}
 
@@ -158,15 +138,20 @@ func staticChmod(cmd *cobra.Command, args []string) {
 		if err != nil {
 			return err
 		}
-		if err := os.Chown(path, uploader_uid, uploader_gid); err != nil {
-			return fmt.Errorf("failed to set permission for uid %d and gid %d", uploader_uid, uploader_gid)
-		}
-		if err := os.Chown(path, 0, uploader_gid); err != nil {
-			return fmt.Errorf("failed to set permission for uid %d and gid %d", 0, uploader_gid)
-		}
 		return os.Chown(path, 0, uploader_gid)
 	}); err != nil {
-		log.Error().Err(err).Msg("failed to set permission for file or folder")
+		log.Error().Err(err).Msg("failed to set recursive ownership")
+		return
+	}
+
+	//  -d operations apply to the default ACL
+	//  -m modify the current ACL(s) of file(s)
+	// 	permissions are same as 770
+	acl_cmd := exec.Command("sudo", "setfacl", "-R", "-d", "-m", "u::rwx,g::rwx,o::---", path)
+	acl_cmd.Stdout = os.Stdout
+	acl_cmd.Stderr = os.Stderr
+	if err := acl_cmd.Run(); err != nil {
+		log.Error().Err(err).Msg("failed to set ACL list")
 		return
 	}
 
