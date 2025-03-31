@@ -301,8 +301,6 @@ func (a *AppCtx) nodeExporterUp() error {
 			},
 		},
 		&container.HostConfig{
-			NetworkMode: network.NetworkHost,
-			PidMode:     network.NetworkHost,
 			PortBindings: nat.PortMap{
 				nat.Port("9100/tcp"): []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: cfg.Observer.Ports.NodeExporter}},
 			},
