@@ -457,7 +457,7 @@ func (a *AppCtx) promtailUp() error {
 	}
 	resp, err := a.Docker.Client.ContainerCreate(a.Context,
 		&container.Config{
-			Image: cfg.Observer.ContainerNames.Promtail,
+			Image: cfg.Observer.Images.Promtail,
 			Cmd:   []string{"-config.file=/etc/promtail/config.yml"},
 		},
 		&container.HostConfig{
