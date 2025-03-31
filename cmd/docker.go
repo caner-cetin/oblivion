@@ -15,15 +15,20 @@ import (
 	"strings"
 	"time"
 
+	"github.com/caner-cetin/oblivion/internal"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/pkg/stdcopy"
+	"github.com/fatih/color"
 	v1 "github.com/moby/docker-image-spec/specs-go/v1"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
+	"github.com/vbauerster/mpb/v8"
+	"github.com/vbauerster/mpb/v8/decor"
 )
 
 func (a *AppCtx) waitForContainerHealthWithConfig(containerID string, healthConfig *v1.HealthcheckConfig) error {
@@ -51,7 +56,6 @@ func (a *AppCtx) waitForContainerHealthWithConfig(containerID string, healthConf
 	return fmt.Errorf("container never became healthy after retries")
 
 }
-
 func (a *AppCtx) readLogs(ctx context.Context, containerID string) {
 	logger := log.With().Str("container_id", containerID).Logger()
 	container_info, err := a.Docker.Client.ContainerInspect(ctx, containerID)
@@ -69,7 +73,7 @@ func (a *AppCtx) readLogs(ctx context.Context, containerID string) {
 		logger.Error().Err(err).Msg("failed to open reader for container logs")
 		return
 	}
-	defer logs.Close()
+	defer internal.CloseReader(logs)
 	logger.Info().Msg("attaching to container logs")
 
 	done := make(chan struct{})
@@ -111,9 +115,10 @@ type containerLogWriter struct {
 
 func (w *containerLogWriter) Write(p []byte) (n int, err error) {
 	var prefix string
-	if w.Writer == os.Stdout {
+	switch w.Writer {
+	case os.Stdout:
 		prefix = fmt.Sprintf("[%s][stdout] ", w.Container.Name)
-	} else if w.Writer == os.Stderr {
+	case os.Stderr:
 		prefix = fmt.Sprintf("[%s][stderr] ", w.Container.Name)
 	}
 	prefix_bytes := []byte(prefix)
@@ -264,6 +269,25 @@ func (a *AppCtx) volumeExists(name string) (bool, error) {
 	return len(resp.Volumes) > 0, nil
 }
 
+func (a *AppCtx) createVolumeIfNotExists(name string, opts *volume.CreateOptions) error {
+	exists, err := a.volumeExists(name)
+	if err != nil {
+		return fmt.Errorf("failed to check existence of %s: %w", name, err)
+	}
+	if !exists {
+		a.Spinner.Prefix = "creating grafana volume"
+		if opts == nil {
+			opts = &volume.CreateOptions{Name: name}
+		}
+		_, err = a.Docker.Client.VolumeCreate(a.Context, *opts)
+		if err != nil {
+			return fmt.Errorf("failed to create %s volume: %w", name, err)
+		}
+		a.Spinner.Prefix = ""
+	}
+	return nil
+}
+
 func (a *AppCtx) imageExists(name string) (bool, error) {
 	resp, err := a.Docker.Client.ImageList(a.Context, image.ListOptions{
 		Filters: filters.NewArgs(filters.Arg("reference", name)),
@@ -274,19 +298,148 @@ func (a *AppCtx) imageExists(name string) (bool, error) {
 	return len(resp) > 0, nil
 }
 
+// checks the existence of container and starts the container if the container is not running already
 func (a *AppCtx) containerExists(name string) (bool, error) {
-	containers, err := a.Docker.Client.ContainerList(a.Context, container.ListOptions{Filters: filters.NewArgs(filters.KeyValuePair{Key: "name", Value: name})})
+	containers, err := a.Docker.Client.ContainerList(a.Context, container.ListOptions{
+		All:     true,
+		Filters: filters.NewArgs(filters.KeyValuePair{Key: "name", Value: name}),
+	})
 	if err != nil {
 		return false, fmt.Errorf("failed to list containers: %w", err)
 	}
-	return len(containers) > 0, nil
+	if len(containers) == 0 {
+		return false, nil
+	}
+
+	inspect, err := a.Docker.Client.ContainerInspect(a.Context, containers[0].ID)
+	if err != nil {
+		return false, fmt.Errorf("failed to inspect container: %w", err)
+	}
+
+	if !inspect.State.Running {
+		log.Info().
+			Interface("current_state", &inspect.State).
+			Str("id", inspect.ID).
+			Str("name", name).
+			Msg("running container")
+		if err := a.Docker.Client.ContainerStart(a.Context, inspect.ID, container.StartOptions{}); err != nil {
+			return false, fmt.Errorf("failed to start container: %w", err)
+		}
+	}
+
+	return true, nil
 }
-
-
 func (a *AppCtx) networkExists(name string) (bool, error) {
-	networks, err := a.Docker.Client.ContainerList(a.Context, container.ListOptions{Filters: filters.NewArgs(filters.KeyValuePair{Key: "Name", Value: name})})
+	networks, err := a.Docker.Client.NetworkList(a.Context, network.ListOptions{Filters: filters.NewArgs(filters.KeyValuePair{Key: "name", Value: name})})
 	if err != nil {
 		return false, fmt.Errorf("failed to list networks: %w", err)
 	}
 	return len(networks) > 0, err
+}
+
+func (a *AppCtx) createNetworkIfNotExists(name string, opts *network.CreateOptions) error {
+	exists, err := a.networkExists(name)
+	if err != nil {
+		return fmt.Errorf("failed to check existence of network %s: %w", name, err)
+	}
+	if !exists {
+		a.Spinner.Prefix = fmt.Sprintf("creating network %s", name)
+		if opts == nil {
+			opts = &network.CreateOptions{Driver: "bridge"}
+		}
+		resp, err := a.Docker.Client.NetworkCreate(a.Context, name, *opts)
+		if err != nil {
+			return fmt.Errorf("failed to create network %s: %w", name, err)
+		}
+		if resp.Warning != "" {
+			log.Warn().Str("msg", resp.Warning).Msgf("warning from network %s", name)
+		}
+		a.Spinner.Prefix = ""
+	}
+	return nil
+}
+
+func (a *AppCtx) pullImageIfNotExists(name string) error {
+	exists, err := a.imageExists(name)
+	if err != nil {
+		return fmt.Errorf("failed to check local existence of image: %w", err)
+	}
+	if exists {
+		return nil
+	}
+	a.Spinner.Prefix = fmt.Sprintf("pulling image %s", name)
+	stream, err := a.Docker.Client.ImagePull(a.Context, name, image.PullOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to pull image: %w", err)
+	}
+	a.Spinner.Stop()
+	defer a.Spinner.Stop()
+	defer stream.Close()
+
+	decoder := json.NewDecoder(stream)
+	progressMap := make(map[string]*mpb.Bar)
+	p := mpb.New(mpb.WithOutput(os.Stderr))
+	defer p.Wait()
+	for {
+		var msg map[string]interface{}
+		if err := decoder.Decode(&msg); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return fmt.Errorf("failed to decode image pull log: %w", err)
+		}
+		a.printPullProgressPretty(msg, progressMap, p)
+	}
+	return nil
+}
+
+func (a *AppCtx) printPullProgressPretty(msg map[string]interface{}, progressMap map[string]*mpb.Bar, p *mpb.Progress) {
+	status, ok := msg["status"].(string)
+	if !ok {
+		return
+	}
+
+	id, ok := msg["id"].(string)
+	if !ok {
+		return
+	}
+
+	progressDetail, ok := msg["progressDetail"].(map[string]interface{})
+
+	if status == "Pulling from" {
+		color.Cyan("Pulling from %s", id)
+		return
+	}
+	if status == "Pull complete" || status == "Download complete" || status == "Extracting" || status == "Verifying Checksum" {
+		color.Green("%s: %s", status, id)
+		return
+	}
+
+	if !ok {
+		return
+	}
+
+	current, ok := progressDetail["current"].(float64)
+	if !ok {
+		return
+	}
+
+	total, ok := progressDetail["total"].(float64)
+	if !ok {
+		return
+	}
+
+	bar, ok := progressMap[id]
+	if !ok {
+		bar = p.AddBar(int64(total),
+			mpb.PrependDecorators(
+				decor.Name(id[:12], decor.WC{W: len(id[:12]) + 1, C: decor.DindentRight}),
+				decor.CountersKibiByte("% .2f / % .2f", decor.WC{W: 15}),
+			),
+			mpb.AppendDecorators(decor.Percentage()),
+		)
+		progressMap[id] = bar
+	}
+
+	bar.SetCurrent(int64(current))
 }

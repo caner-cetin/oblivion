@@ -12,10 +12,13 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.3
 	github.com/rs/zerolog v1.34.0
 	github.com/spf13/cobra v1.9.1
+	github.com/vbauerster/mpb/v8 v8.9.3
 )
 
 require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
+	github.com/VividCortex/ewma v1.2.0 // indirect
+	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
@@ -30,11 +33,13 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/moby/term v0.5.2 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/tetratelabs/wabin v0.0.0-20230304001439-f6f874872834 // indirect
 	github.com/tetratelabs/wazero v1.9.0 // indirect

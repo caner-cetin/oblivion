@@ -27,42 +27,23 @@ func getNetworkCmd() *cobra.Command {
 
 func networkUp(cmd *cobra.Command, args []string) {
 	app := GetApp(cmd)
-	exists, err := app.networkExists(cfg.Networks.DatabaseNetworkName)
-	if err != nil {
-		log.Error().Err(err).Msgf("failed to check existence of network %s", cfg.Networks.DatabaseNetworkName)
+	if err := app.createNetworkIfNotExists(cfg.Networks.DatabaseNetworkName, nil); err != nil {
+		log.Error().Err(err).Str("network_name", cfg.Networks.DatabaseNetworkName).Msg("failed to create network")
 		return
 	}
-	if exists {
-		color.Cyan("network %s already exists", cfg.Networks.DatabaseNetworkName)
-	} else {
-		resp, err := app.Docker.Client.NetworkCreate(app.Context, cfg.Networks.DatabaseNetworkName, network.CreateOptions{Driver: "bridge"})
-		if err != nil {
-			log.Error().Err(err).Msgf("failed to create network %s", cfg.Networks.DatabaseNetworkName)
-			return
-		}
-		if resp.Warning != "" {
-			log.Warn().Str("msg", resp.Warning).Msgf("warning from network %s", cfg.Networks.DatabaseNetworkName)
-		}
-		color.Green("created network %s", cfg.Networks.DatabaseNetworkName)
+	if err := app.createNetworkIfNotExists(cfg.Networks.UptimeNetworkName, nil); err != nil {
+		log.Error().Err(err).Str("network_name", cfg.Networks.UptimeNetworkName).Msg("failed to create network")
+		return
+	}
+	if err := app.createNetworkIfNotExists(cfg.Networks.GrafanaNetworkName, nil); err != nil {
+		log.Error().Err(err).Str("network_name", cfg.Networks.GrafanaNetworkName).Msg("failed to create network")
+		return
+	}
+	if err := app.createNetworkIfNotExists(cfg.Networks.LokiNetworkName, nil); err != nil {
+		log.Error().Err(err).Str("network_name", cfg.Networks.LokiNetworkName).Msg("failed to create network")
+		return
 	}
 
-	exists, err = app.networkExists(cfg.Networks.UptimeNetworkName)
-	if err != nil {
-		log.Error().Err(err).Msgf("failed to check existence of network %s", cfg.Networks.UptimeNetworkName)
-		return
-	}
-	if exists {
-		color.Cyan("network %s already exists", cfg.Networks.UptimeNetworkName)
-	} else {
-		resp, err := app.Docker.Client.NetworkCreate(app.Context, cfg.Networks.UptimeNetworkName, network.CreateOptions{Driver: "bridge"})
-		if err != nil {
-			log.Error().Err(err).Msgf("failed to create network %s", cfg.Networks.UptimeNetworkName)
-			return
-		}
-		if resp.Warning != "" {
-			log.Warn().Str("msg", resp.Warning).Msgf("warning from network %s", cfg.Networks.UptimeNetworkName)
-		}
-	}
 	color.Green("created required networks")
 }
 

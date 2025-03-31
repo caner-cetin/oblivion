@@ -38,10 +38,10 @@ schema_config:
 pattern_ingester:
   enabled: true
   metric_aggregation:
-    loki_address: loki:3169
+    loki_address: cansu.dev-observer-loki:3169
 
 ruler:
-  alertmanager_url: http://alertmanager:9093
+  alertmanager_url: http://cansu.dev-observer-alertmanager:9093
 
 frontend:
   encoding: protobuf

@@ -3,7 +3,7 @@ global:
   scrape_interval: 15s # By default, scrape targets every 15 seconds.
   evaluation_interval: 15s # By default, scrape targets every 15 seconds.
   external_labels:
-    monitor: "my-project"
+    monitor: "cansu.dev"
 
 # Load and evaluate rules in this file every 'evaluation_interval' seconds.
 rule_files:
@@ -14,19 +14,19 @@ alerting:
     - scheme: http
       static_configs:
         - targets:
-            - "alertmanager:9093"
+            - "cansu.dev-observer-alertmanager:9093"
 
 # Here it's Prometheus itself.
 scrape_configs:
   - job_name: "prometheus"
     scrape_interval: 15s
     static_configs:
-      - targets: ["localhost:9090"]
+      - targets: ["cansu.dev-observer-prometheus:9090"]
   - job_name: "cadvisor"
     scrape_interval: 15s
     static_configs:
-      - targets: ["cadvisor:8080"]
+      - targets: ["cansu.dev-observer-cadvisor:8080"]
   - job_name: "node-exporter"
     scrape_interval: 15s
     static_configs:
-      - targets: ["node-exporter:9100"]
+      - targets: ["cansu.dev-observer-node_exporter:9100"]

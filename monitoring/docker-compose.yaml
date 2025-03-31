@@ -63,8 +63,6 @@ services:
     networks:
       - back-tier
     restart: always
-    deploy:
-      mode: global
   grafana:
     image: grafana/grafana:11.1.4
     user: "472"
@@ -79,7 +77,6 @@ services:
       - ./grafana/config.monitoring
     networks:
       - back-tier
-      - front-tier
       - loki
     restart: always
   loki:

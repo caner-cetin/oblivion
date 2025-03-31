@@ -39,6 +39,7 @@ func init() {
 	rootCmd.AddCommand(getKumaCmd())
 	rootCmd.AddCommand(getStaticCmd())
 	rootCmd.AddCommand(getNetworkCmd())
+	rootCmd.AddCommand(getObserverCmd())
 }
 
 func initConfig() {

@@ -32,9 +32,7 @@ type AppCtx struct {
 
 type ContextKey string
 
-var (
-	APP_CONTEXT_KEY ContextKey = "oblivion.app"
-)
+var APP_CONTEXT_KEY ContextKey = "oblivion.app"
 
 type ResourceType int
 
@@ -48,6 +46,8 @@ type Network int
 const (
 	NetworkDatabase Network = iota
 	NetworkUptime
+	NetworkGrafana
+	NetworkLoki
 )
 
 type ResourceConfig struct {
@@ -84,21 +84,37 @@ func WrapCommandWithResources(fn func(cmd *cobra.Command, args []string), resour
 				}
 				appCtx.Docker.Networks[cfg.Networks.DatabaseNetworkName] = &network.EndpointSettings{NetworkID: network_id}
 			case NetworkUptime:
-				network_id, err := appCtx.getNetworkIDByName(cmd.Context(), cfg.Networks.UptimeNetworkName) // todo: config
+				network_id, err := appCtx.getNetworkIDByName(cmd.Context(), cfg.Networks.UptimeNetworkName)
 				if err != nil {
 					log.Error().Err(err).Send()
 					return
 				}
 				appCtx.Docker.Networks[cfg.Networks.UptimeNetworkName] = &network.EndpointSettings{NetworkID: network_id}
+			case NetworkGrafana:
+				network_id, err := appCtx.getNetworkIDByName(cmd.Context(), cfg.Networks.GrafanaNetworkName)
+				if err != nil {
+					log.Error().Err(err).Send()
+					return
+				}
+				appCtx.Docker.Networks[cfg.Networks.GrafanaNetworkName] = &network.EndpointSettings{NetworkID: network_id}
+			case NetworkLoki:
+				network_id, err := appCtx.getNetworkIDByName(cmd.Context(), cfg.Networks.LokiNetworkName)
+				if err != nil {
+					log.Error().Err(err).Send()
+					return
+				}
+				appCtx.Docker.Networks[cfg.Networks.LokiNetworkName] = &network.EndpointSettings{NetworkID: network_id}
 			}
 		}
 		appCtx.Spinner = spinner.New(spinner.CharSets[12], 100*time.Millisecond)
+		appCtx.Spinner.Start()
 		defer func() {
 			if appCtx.Docker.Client != nil {
 				if err := appCtx.Docker.Client.Close(); err != nil {
 					log.Error().Err(err).Msg("failed to close docker client")
 				}
 			}
+			appCtx.Spinner.Stop()
 		}()
 		cmd.SetContext(context.WithValue(cmd.Context(), APP_CONTEXT_KEY, appCtx))
 		fn(cmd, args)

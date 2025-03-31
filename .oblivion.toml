@@ -4,19 +4,24 @@ Socket = 'unix:///var/run/docker.sock'
 [Networks]
 database_network_name = 'database_bridge'
 uptime_network_name = 'uptime_bridge'
+grafana_network_name = 'grafana_bridge'
+loki_network_name = 'loki_bridge'
 
 [Postgres]
 db = 'postgres'
-primary_port = '5432'
-bouncer_port = '6432'
-primary_name = 'cansu.dev-pg-primary'
-replica_name = 'cansu.dev-pg-replica'
-bouncer_name = 'cansu.dev-pg-bouncer'
-primary_image = 'postgres:17'
-replica_image = 'postgres:17'
-bouncer_image = 'edoburu/pgbouncer'
-primary_data_vol = 'pg_primary_data'
-replica_data_vol = 'pg_replica_data'
+[Postgres.Primary]
+port = '5432'
+name = 'cansu.dev-pg-primary'
+image = 'postgres:17'
+volume = 'pg_primary_data'
+[Postgres.Replica]
+name = 'cansu.dev-pg-replica'
+image = 'postgres:17'
+volume = 'pg_replica_data'
+[Postgres.Bouncer]
+port = '6432'
+name = 'cansu.dev-pg-bouncer'
+image = 'edoburu/pgbouncer'
 
 [Onepass]
 vault_name = 'Server'
@@ -33,3 +38,36 @@ container_name = 'uptime'
 image_name = 'louislam/uptime-kuma:1'
 port = '3001'
 data_volume = 'kuma_kuma_data'
+
+[Observer]
+[Observer.Volumes]
+grafana = "grafana_data"
+prometheus = "prometheus_data"
+[Observer.Binds]
+prometheus = "/Users/canercetin/Git/oblivion/cmd/config/prometheus/"
+grafana = "/Users/canercetin/Git/oblivion/cmd/config/grafana/"
+alertmanager = "/Users/canercetin/Git/oblivion/cmd/config/alertmanager/"
+loki = "/Users/canercetin/Git/oblivion/cmd/config/loki"
+[Observer.ContainerNames]
+grafana = "cansu.dev-observer-grafana"
+prometheus = "cansu.dev-observer-prometheus"
+loki = "cansu.dev-observer-loki"
+promtail = "cansu.dev-observer-promtail"
+cadvisor = "cansu.dev-observer-cadvisor"
+node_exporter = "cansu.dev-observer-node_exporter"
+alertmanager = "cansu.dev-observer-alertmanager"
+[Observer.Images]
+grafana = "grafana/grafana:latest"
+prometheus = "prom/prometheus:latest"
+loki = "grafana/loki:latest"
+promtail = "grafana/promtail:latest"
+cadvisor = "gcr.io/cadvisor/cadvisor"
+node_exporter = "quay.io/prometheus/node-exporter:latest"
+alertmanager = "prom/alertmanager:latest"
+[Observer.Ports]
+grafana = '3000'
+prometheus = '9090'
+node_exporter = '9100'
+alertmanager = '9093'
+cadvisor = '8080'
+loki = '3169'

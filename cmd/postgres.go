@@ -97,7 +97,7 @@ func (a *AppCtx) loadPostgresSecrets() (*postgresCredentials, error) {
 }
 
 func (c *postgresCredentials) startPrimary(app *AppCtx) error {
-	exists, err := app.containerExists(cfg.Postgres.PrimaryName)
+	exists, err := app.containerExists(cfg.Postgres.Primary.Name)
 	if err != nil {
 		return fmt.Errorf("failed to check if primary container exists: %w", err)
 	}
@@ -137,7 +137,7 @@ GRANT EXECUTE ON FUNCTION public.lookup(name) TO %s;
 			AttachStderr: true,
 			AttachStdin:  false,
 			OpenStdin:    false,
-			Image:        cfg.Postgres.PrimaryImage,
+			Image:        cfg.Postgres.Primary.Image,
 			Cmd: []string{
 				"-c",
 				"wal_level=replica",
@@ -158,12 +158,12 @@ GRANT EXECUTE ON FUNCTION public.lookup(name) TO %s;
 		},
 		&container.HostConfig{
 			PortBindings: nat.PortMap{
-				nat.Port("5432/tcp"): []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: cfg.Postgres.PrimaryPort}},
+				nat.Port("5432/tcp"): []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: cfg.Postgres.Primary.Port}},
 			},
 			Mounts: []mount.Mount{
 				{
 					Type:   mount.TypeVolume,
-					Source: cfg.Postgres.PrimaryDataVol,
+					Source: cfg.Postgres.Primary.Volume,
 					Target: "/var/lib/postgresql/data",
 				},
 				{
@@ -177,7 +177,7 @@ GRANT EXECUTE ON FUNCTION public.lookup(name) TO %s;
 			EndpointsConfig: app.getNetworks(cfg.Networks.DatabaseNetworkName),
 		},
 		nil,
-		cfg.Postgres.PrimaryName)
+		cfg.Postgres.Primary.Name)
 	if err != nil {
 		return fmt.Errorf("failed to create primary postgres container: %w", err)
 	}
@@ -195,7 +195,7 @@ GRANT EXECUTE ON FUNCTION public.lookup(name) TO %s;
 }
 
 func (c *postgresCredentials) startReplica(app *AppCtx) error {
-	exists, err := app.containerExists(cfg.Postgres.ReplicaName)
+	exists, err := app.containerExists(cfg.Postgres.Replica.Name)
 	if err != nil {
 		return fmt.Errorf("failed to check if replica container exists: %w", err)
 	}
@@ -209,7 +209,7 @@ func (c *postgresCredentials) startReplica(app *AppCtx) error {
 			AttachStderr: true,
 			AttachStdin:  false,
 			OpenStdin:    false,
-			Image:        cfg.Postgres.ReplicaImage,
+			Image:        cfg.Postgres.Replica.Image,
 			Cmd: []string{
 				"-c",
 				"wal_level=replica",
@@ -231,7 +231,7 @@ func (c *postgresCredentials) startReplica(app *AppCtx) error {
 			Mounts: []mount.Mount{
 				{
 					Type:   mount.TypeVolume,
-					Source: cfg.Postgres.ReplicaDataVol,
+					Source: cfg.Postgres.Replica.Volume,
 					Target: "/var/lib/postgresql/data",
 				},
 			},
@@ -240,7 +240,7 @@ func (c *postgresCredentials) startReplica(app *AppCtx) error {
 			EndpointsConfig: app.getNetworks(cfg.Networks.DatabaseNetworkName),
 		},
 		nil,
-		cfg.Postgres.ReplicaName)
+		cfg.Postgres.Replica.Name)
 	if err != nil {
 		return fmt.Errorf("failed to create replica postgres container: %w", err)
 	}
@@ -258,7 +258,7 @@ func (c *postgresCredentials) startReplica(app *AppCtx) error {
 }
 
 func (c *postgresCredentials) startBouncer(app *AppCtx) error {
-	exists, err := app.containerExists(cfg.Postgres.BouncerName)
+	exists, err := app.containerExists(cfg.Postgres.Bouncer.Name)
 	if err != nil {
 		return fmt.Errorf("failed to check if bouncer container exists: %w", err)
 	}
@@ -270,15 +270,15 @@ func (c *postgresCredentials) startBouncer(app *AppCtx) error {
 		&container.Config{
 			AttachStdout: true,
 			AttachStderr: true,
-			Image:        cfg.Postgres.BouncerImage,
+			Image:        cfg.Postgres.Bouncer.Image,
 			Env: []string{
-				fmt.Sprintf("DB_HOST=%s", cfg.Postgres.PrimaryName),
+				fmt.Sprintf("DB_HOST=%s", cfg.Postgres.Primary.Name),
 				"DB_PORT=5432",
 				"AUTH_USER=" + c.Bouncer.User,
 				"AUTH_FILE=/etc/pgbouncer/userlist.txt",
 				"AUTH_TYPE=scram-sha-256",
 				"AUTH_QUERY='SELECT p_user, p_password FROM public.lookup($1)'",
-				fmt.Sprintf("LISTEN_PORT=%s", cfg.Postgres.BouncerPort),
+				fmt.Sprintf("LISTEN_PORT=%s", cfg.Postgres.Bouncer.Port),
 				"LISTEN_ADDR=0.0.0.0",
 				"POOL_MODE=session",
 				"MAX_CLIENT_CONN=250",
@@ -296,14 +296,14 @@ func (c *postgresCredentials) startBouncer(app *AppCtx) error {
 		},
 		&container.HostConfig{
 			PortBindings: nat.PortMap{
-				nat.Port("6432/tcp"): []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: cfg.Postgres.BouncerPort}},
+				nat.Port("6432/tcp"): []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: cfg.Postgres.Bouncer.Port}},
 			},
 		},
 		&network.NetworkingConfig{
 			EndpointsConfig: app.getNetworks(cfg.Networks.DatabaseNetworkName),
 		},
 		nil,
-		cfg.Postgres.BouncerName,
+		cfg.Postgres.Bouncer.Name,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create bouncer container: %w", err)

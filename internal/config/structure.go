@@ -1,21 +1,24 @@
 package config
 
 type Root struct {
-	Docker   DockerConfig
-	Networks NetworkConfig
-	Postgres PostgresConfig
-	Onepass  OnepasswordConfig
-	Static   StaticConfig
-	Kuma     KumaConfig
+	Docker   DockerConfig      `toml:"Docker"`
+	Networks NetworkConfig     `toml:"Networks"`
+	Postgres PostgresConfig    `toml:"Postgres"`
+	Onepass  OnepasswordConfig `toml:"Onepass"`
+	Static   StaticConfig      `toml:"Static"`
+	Kuma     KumaConfig        `toml:"Kuma"`
+	Observer ObserverConfig    `toml:"Observer"`
 }
 
 type DockerConfig struct {
-	Socket string
+	Socket string `toml:"Socket"`
 }
 
 type NetworkConfig struct {
 	DatabaseNetworkName string `toml:"database_network_name"`
 	UptimeNetworkName   string `toml:"uptime_network_name"`
+	GrafanaNetworkName  string `toml:"grafana_network_name"`
+	LokiNetworkName     string `toml:"loki_network_name"`
 }
 
 type OnepasswordConfig struct {
@@ -23,17 +26,17 @@ type OnepasswordConfig struct {
 }
 
 type PostgresConfig struct {
-	DB             string `toml:"db"`
-	PrimaryPort    string `toml:"primary_port"`
-	BouncerPort    string `toml:"bouncer_port"`
-	PrimaryName    string `toml:"primary_name"`
-	ReplicaName    string `toml:"replica_name"`
-	BouncerName    string `toml:"bouncer_name"`
-	PrimaryImage   string `toml:"primary_image"`
-	ReplicaImage   string `toml:"replica_image"`
-	BouncerImage   string `toml:"bouncer_image"`
-	PrimaryDataVol string `toml:"primary_data_vol"`
-	ReplicaDataVol string `toml:"replica_data_vol"`
+	DB      string                 `toml:"db"`
+	Primary PostgresInstanceConfig `toml:"Primary"`
+	Replica PostgresInstanceConfig `toml:"Replica"`
+	Bouncer PostgresInstanceConfig `toml:"Bouncer"`
+}
+
+type PostgresInstanceConfig struct {
+	Port   string `toml:"port"`
+	Name   string `toml:"name"`
+	Image  string `toml:"image"`
+	Volume string `toml:"volume"`
 }
 
 type StaticConfig struct {
@@ -49,6 +52,24 @@ type KumaConfig struct {
 	ImageName     string `toml:"image_name"`
 	Port          string `toml:"port"`
 	DataVolume    string `toml:"data_volume"`
+}
+
+type ObserverConfig struct {
+	Volumes        ObserverInstanceConfig `toml:"Volumes"`
+	Binds          ObserverInstanceConfig `toml:"Binds"`
+	ContainerNames ObserverInstanceConfig `toml:"ContainerNames"`
+	Ports          ObserverInstanceConfig `toml:"Ports"`
+	Images         ObserverInstanceConfig `toml:"Images"`
+}
+
+type ObserverInstanceConfig struct {
+	Grafana      string `toml:"grafana"`
+	Prometheus   string `toml:"prometheus"`
+	NodeExporter string `toml:"node_exporter"`
+	Alertmanager string `toml:"alertmanager"`
+	Cadvisor     string `toml:"cadvisor"`
+	Loki         string `toml:"loki"`
+	Promtail     string `toml:"loki"`
 }
 
 var Config Root
