@@ -105,32 +105,6 @@ func (c *postgresCredentials) startPrimary(app *AppCtx) error {
 		color.Green("primary pg container running")
 		return nil
 	}
-	bouncer_init_sql := fmt.Sprintf(`
-CREATE ROLE %s LOGIN;
--- set a password for the user
-ALTER USER %s WITH PASSWORD '%s';
- 
-CREATE FUNCTION public.lookup (
-   INOUT p_user     name,
-   OUT   p_password text
-) RETURNS record
-   LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog AS
-$$SELECT usename, passwd FROM pg_shadow WHERE usename = p_user$$;
- 
--- make sure only 'pgbouncer' can use the function
-REVOKE EXECUTE ON FUNCTION public.lookup(name) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.lookup(name) TO %s;
-	`, c.Bouncer.User, c.Bouncer.User, c.Bouncer.Password, c.Bouncer.User)
-	temp_bouncer_init_sql, err := os.CreateTemp(os.TempDir(), "temp-postgres-bouncer-init-*.sql")
-	if err != nil {
-		return fmt.Errorf("failed to create temp bouncer init sql file: %w", err)
-	}
-	defer temp_bouncer_init_sql.Close()
-	defer os.Remove(temp_bouncer_init_sql.Name())
-	_, err = io.Copy(temp_bouncer_init_sql, strings.NewReader(bouncer_init_sql))
-	if err != nil {
-		return fmt.Errorf("failed to copy bouncer init sql to temp file: %w", err)
-	}
 	response, err := app.Docker.Client.ContainerCreate(app.Context,
 		&container.Config{
 			AttachStdout: true,
@@ -165,11 +139,6 @@ GRANT EXECUTE ON FUNCTION public.lookup(name) TO %s;
 					Type:   mount.TypeVolume,
 					Source: cfg.Postgres.Primary.Volume,
 					Target: "/var/lib/postgresql/data",
-				},
-				{
-					Type:   mount.TypeBind,
-					Source: temp_bouncer_init_sql.Name(),
-					Target: "/docker-entrypoint-initdb.d/bouncer-init.sql",
 				},
 			},
 		},
