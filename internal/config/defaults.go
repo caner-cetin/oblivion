@@ -52,4 +52,7 @@ func (c *Root) SetDefaults() {
 	c.Observer.Binds.Grafana = "/Users/canercetin/Git/oblivion/cmd/config/grafana/"
 	c.Observer.Binds.Alertmanager = "/Users/canercetin/Git/oblivion/cmd/config/alertmanager/"
 	c.Observer.Binds.Loki = "/Users/canercetin/Git/oblivion/cmd/config/loki"
+	c.Dragonfly.Port = "6379"
+	c.Dragonfly.ContainerName = "cansu.dev-redis"
+	c.Dragonfly.Image = "docker.dragonflydb.io/dragonflydb/dragonfly"
 }

@@ -1,13 +1,14 @@
 package config
 
 type Root struct {
-	Docker   DockerConfig      `toml:"Docker"`
-	Networks NetworkConfig     `toml:"Networks"`
-	Postgres PostgresConfig    `toml:"Postgres"`
-	Onepass  OnepasswordConfig `toml:"Onepass"`
-	Static   StaticConfig      `toml:"Static"`
-	Kuma     KumaConfig        `toml:"Kuma"`
-	Observer ObserverConfig    `toml:"Observer"`
+	Docker    DockerConfig      `toml:"Docker"`
+	Networks  NetworkConfig     `toml:"Networks"`
+	Postgres  PostgresConfig    `toml:"Postgres"`
+	Onepass   OnepasswordConfig `toml:"Onepass"`
+	Static    StaticConfig      `toml:"Static"`
+	Kuma      KumaConfig        `toml:"Kuma"`
+	Observer  ObserverConfig    `toml:"Observer"`
+	Dragonfly DragonflyConfig   `toml:"Dragonfly"`
 }
 
 type DockerConfig struct {
@@ -69,6 +70,12 @@ type ObserverInstanceConfig struct {
 	Alertmanager string `toml:"alertmanager"`
 	Cadvisor     string `toml:"cadvisor"`
 	Loki         string `toml:"loki"`
+}
+
+type DragonflyConfig struct {
+	Port          string `toml:"port"`
+	ContainerName string `toml:"container_name"`
+	Image         string `toml:"image"`
 }
 
 var Config Root

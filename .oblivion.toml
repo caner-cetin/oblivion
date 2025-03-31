@@ -69,3 +69,8 @@ node_exporter = '9100'
 alertmanager = '9093'
 cadvisor = '8080'
 loki = '3169'
+
+[Dragonfly]
+port = '6379'
+container_name = 'cansu.dev-redis'
+image = 'docker.dragonflydb.io/dragonflydb/dragonfly'

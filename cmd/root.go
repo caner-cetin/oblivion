@@ -40,6 +40,8 @@ func init() {
 	rootCmd.AddCommand(getStaticCmd())
 	rootCmd.AddCommand(getNetworkCmd())
 	rootCmd.AddCommand(getObserverCmd())
+	rootCmd.AddCommand(getPlaygroundCmd())
+	rootCmd.AddCommand(getRedisCmd())
 }
 
 func initConfig() {
