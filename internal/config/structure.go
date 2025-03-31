@@ -69,7 +69,6 @@ type ObserverInstanceConfig struct {
 	Alertmanager string `toml:"alertmanager"`
 	Cadvisor     string `toml:"cadvisor"`
 	Loki         string `toml:"loki"`
-	Promtail     string `toml:"promtail"`
 }
 
 var Config Root

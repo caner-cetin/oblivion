@@ -94,10 +94,6 @@ func observerUp(cmd *cobra.Command, args []string) {
 		log.Error().Err(err).Send()
 		return
 	}
-	if err := app.promtailUp(); err != nil {
-		log.Error().Err(err).Send()
-		return
-	}
 }
 
 func (a *AppCtx) cadvisorUp() error {
@@ -439,47 +435,6 @@ func (a *AppCtx) lokiUp() error {
 	}
 	if err := a.Docker.Client.ContainerStart(a.Context, resp.ID, container.StartOptions{}); err != nil {
 		return fmt.Errorf("failed to start loki container: %w", err)
-	}
-	return nil
-}
-
-func (a *AppCtx) promtailUp() error {
-	exists, err := a.containerExists(cfg.Observer.ContainerNames.Promtail)
-	if err != nil {
-		return fmt.Errorf("failed to check existence of promtail container: %w", err)
-	}
-	if exists {
-		color.Cyan("promtail container running")
-		return nil
-	}
-	if err = a.pullImageIfNotExists(cfg.Observer.Images.Promtail); err != nil {
-		return fmt.Errorf("failed to pull image: %w", err)
-	}
-	resp, err := a.Docker.Client.ContainerCreate(a.Context,
-		&container.Config{
-			Image: cfg.Observer.Images.Promtail,
-			Cmd:   []string{"-config.file=/etc/promtail/config.yml"},
-		},
-		&container.HostConfig{
-			Mounts: []mount.Mount{
-				{
-					Type:   mount.TypeBind,
-					Source: "/var/log",
-					Target: "/var/log",
-				},
-			},
-		},
-		&network.NetworkingConfig{
-			EndpointsConfig: a.getNetworks(cfg.Networks.LokiNetworkName, cfg.Networks.GrafanaNetworkName),
-		},
-		nil,
-		cfg.Observer.ContainerNames.Promtail,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create promtail container: %w", err)
-	}
-	if err := a.Docker.Client.ContainerStart(a.Context, resp.ID, container.StartOptions{}); err != nil {
-		return fmt.Errorf("failed to start promtail container: %w", err)
 	}
 	return nil
 }
