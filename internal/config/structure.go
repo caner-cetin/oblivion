@@ -1,14 +1,15 @@
 package config
 
 type Root struct {
-	Docker    DockerConfig      `toml:"Docker"`
-	Networks  NetworkConfig     `toml:"Networks"`
-	Postgres  PostgresConfig    `toml:"Postgres"`
-	Onepass   OnepasswordConfig `toml:"Onepass"`
-	Static    StaticConfig      `toml:"Static"`
-	Kuma      KumaConfig        `toml:"Kuma"`
-	Observer  ObserverConfig    `toml:"Observer"`
-	Dragonfly DragonflyConfig   `toml:"Dragonfly"`
+	Docker     DockerConfig      `toml:"Docker"`
+	Networks   NetworkConfig     `toml:"Networks"`
+	Postgres   PostgresConfig    `toml:"Postgres"`
+	Onepass    OnepasswordConfig `toml:"Onepass"`
+	Static     StaticConfig      `toml:"Static"`
+	Kuma       KumaConfig        `toml:"Kuma"`
+	Observer   ObserverConfig    `toml:"Observer"`
+	Dragonfly  DragonflyConfig   `toml:"Dragonfly"`
+	Playground PlaygroundConfig  `toml:"Playground"`
 }
 
 type DockerConfig struct {
@@ -76,6 +77,18 @@ type DragonflyConfig struct {
 	Port          string `toml:"port"`
 	ContainerName string `toml:"container_name"`
 	Image         string `toml:"image"`
+}
+
+type PlaygroundConfig struct {
+	Backend PlaygroundBackendConfig `toml:"Backend"`
+}
+
+type PlaygroundBackendConfig struct {
+	HFModelUrl    string `toml:"hf_model_url"`
+	Port          string `toml:"port"`
+	Repository    string `toml:"repository"`
+	ContainerName string `toml:"container_name"`
+	ImageName     string `toml:"image_name"`
 }
 
 var Config Root

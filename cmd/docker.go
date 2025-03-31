@@ -166,7 +166,7 @@ type BuildResponse struct {
 }
 
 // src is the source folder
-func (a *AppCtx) buildImage(fs embed.FS, dir string, image_tag string, dockerfile string) error {
+func (a *AppCtx) buildImage(fs fs.FS, dir string, image_tag string, dockerfile string) error {
 	buildCtx, err := createBuildContext(fs, dir)
 	if err != nil {
 		return err
@@ -207,7 +207,7 @@ func (a *AppCtx) buildImage(fs embed.FS, dir string, image_tag string, dockerfil
 	return nil
 }
 
-func createBuildContext(filesystem embed.FS, dir string) (*bytes.Buffer, error) {
+func createBuildContext(filesystem fs.FS, dir string) (*bytes.Buffer, error) {
 	buf := new(bytes.Buffer)
 	tw := tar.NewWriter(buf)
 	defer func() {
@@ -229,7 +229,7 @@ func createBuildContext(filesystem embed.FS, dir string) (*bytes.Buffer, error) 
 		if err != nil {
 			return fmt.Errorf("failed to get relative path: %w", err)
 		}
-		data, err := filesystem.ReadFile(path)
+		data, err := os.ReadFile(path)
 		if err != nil {
 			return fmt.Errorf("failed to read file %s: %w", path, err)
 		}

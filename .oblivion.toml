@@ -74,3 +74,12 @@ loki = '3169'
 port = '6379'
 container_name = 'cansu.dev-redis'
 image = 'docker.dragonflydb.io/dragonflydb/dragonfly'
+
+[Playground]
+[Backend]
+hf_model_url = 'https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-70B-Instruct'
+port = '6767'
+repository = 'https://github.com/caner-cetin/code-cansu-dev'
+container_name = 'cansu.dev-playground-backend'
+image_name = 'playground-backend'
+

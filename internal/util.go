@@ -148,3 +148,8 @@ func CloseReader(r io.ReadCloser) {
 		log.Error().Err(fmt.Errorf("error closing reader: %w", cerr)).Send()
 	}
 }
+
+
+func Ptr[T any](v T) *T{
+	return &v
+}

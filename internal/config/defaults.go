@@ -55,4 +55,9 @@ func (c *Root) SetDefaults() {
 	c.Dragonfly.Port = "6379"
 	c.Dragonfly.ContainerName = "cansu.dev-redis"
 	c.Dragonfly.Image = "docker.dragonflydb.io/dragonflydb/dragonfly"
+	c.Playground.Backend.HFModelUrl = "https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-70B-Instruct"
+	c.Playground.Backend.Port = "6767"
+	c.Playground.Backend.Repository = "https://github.com/caner-cetin/code-cansu-dev"
+	c.Playground.Backend.ContainerName = "cansu.dev-playground-backend"
+	c.Playground.Backend.ImageName = "playground-backend"
 }

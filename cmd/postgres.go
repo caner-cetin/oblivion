@@ -23,6 +23,7 @@ type postgresCredentials struct {
 	Bouncer    userPasswordPair
 	Replicator userPasswordPair
 	Postgres   userPasswordPair
+	Role       *userPasswordPair
 }
 
 var (
@@ -42,7 +43,7 @@ func getPostgresCmd() *cobra.Command {
 
 func postgresUp(cmd *cobra.Command, args []string) {
 	app := GetApp(cmd)
-	credentials, err := app.loadPostgresSecrets()
+	credentials, err := app.loadPostgresSecrets(nil, nil)
 	if err != nil {
 		log.Error().Err(err).Send()
 		return
@@ -62,17 +63,24 @@ func postgresUp(cmd *cobra.Command, args []string) {
 	}
 }
 
-func (a *AppCtx) loadPostgresSecrets() (*postgresCredentials, error) {
-	secrets, err := a.resolveSecrets(
-		[]string{
-			"/Postgres/Replicator/username",
-			"/Postgres/Replicator/password",
-			"/Postgres/Root/username",
-			"/Postgres/Root/password",
-			"/Postgres/Bouncer/username",
-			"/Postgres/Bouncer/password",
-		},
-	)
+// resolves replicator, root (postgres) and bouncer usernames for postgres
+// if user_ref and password_ref is not nil, they are also retrieved from db.
+// omit the prefix (op://Server etc.) from user and password references
+func (a *AppCtx) loadPostgresSecrets(user_ref *string, password_ref *string) (*postgresCredentials, error) {
+	var also_resolve_custom_role = user_ref != nil && password_ref != nil
+	keys := []string{
+		"/Postgres/Replicator/username",
+		"/Postgres/Replicator/password",
+		"/Postgres/Root/username",
+		"/Postgres/Root/password",
+		"/Postgres/Bouncer/username",
+		"/Postgres/Bouncer/password",
+	}
+	if also_resolve_custom_role {
+		keys = append(keys, *user_ref)
+		keys = append(keys, *password_ref)
+	}
+	secrets, err := a.resolveSecrets(keys)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve postgres credentials: %w", err)
 	}
@@ -89,6 +97,12 @@ func (a *AppCtx) loadPostgresSecrets() (*postgresCredentials, error) {
 			User:     secrets[4],
 			Password: secrets[5],
 		},
+	}
+	if also_resolve_custom_role {
+		credentials.Role = &userPasswordPair{
+			User:     secrets[6],
+			Password: secrets[7],
+		}
 	}
 	return &credentials, nil
 }
