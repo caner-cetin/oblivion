@@ -2,9 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"io"
-	"os"
-	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
