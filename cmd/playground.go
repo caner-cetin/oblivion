@@ -11,15 +11,15 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/go-connections/nat"
 	"github.com/fatih/color"
+	git "github.com/libgit2/git2go/v34"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
-	git "gopkg.in/libgit2/git2go.v25"
 )
 
 var (
 	playgroundUpCmd = &cobra.Command{
 		Use: "up",
-		Run: WrapCommandWithResources(playgroundUp, ResourceConfig{Resources: []ResourceType{ResourceDocker}, Networks: []Network{NetworkDatabase, NetworkLoki}}),
+		Run: WrapCommandWithResources(playgroundUp, ResourceConfig{Resources: []ResourceType{ResourceDocker, ResourceOnePassword}, Networks: []Network{NetworkDatabase, NetworkLoki}}),
 	}
 
 	playgroundCmd = &cobra.Command{
@@ -44,8 +44,14 @@ func playgroundUp(cmd *cobra.Command, args []string) {
 		return
 	}
 	tmp_repo_dir := filepath.Join(os.TempDir(), "code.cansu.dev")
+	if err := os.Remove(tmp_repo_dir); err != nil {
+		if !os.IsNotExist(err) {
+			log.Error().Err(err).Send()
+			return
+		}
+	}
 	_, err = git.Clone(cfg.Playground.Backend.Repository, tmp_repo_dir, &git.CloneOptions{
-		CheckoutOpts: &git.CheckoutOpts{
+		CheckoutOptions: git.CheckoutOptions{
 			Strategy:        git.CheckoutForce,
 			TargetDirectory: tmp_repo_dir,
 		},
@@ -56,7 +62,10 @@ func playgroundUp(cmd *cobra.Command, args []string) {
 	}
 	backend_dir := filepath.Join(tmp_repo_dir, "backend")
 	repo_fs := os.DirFS(backend_dir)
-	app.buildImage(repo_fs, backend_dir, cfg.Playground.Backend.ImageName, "Dockerfile")
+	if err := app.buildImage(repo_fs, backend_dir, cfg.Playground.Backend.ImageName, "Dockerfile"); err != nil {
+		log.Error().Err(err).Msg("failed to build image")
+		return
+	}
 
 	pg_secrets, err := app.loadPostgresSecrets(internal.Ptr("/Postgres/code.cansu.dev/username"), internal.Ptr("/Postgres/code.cansu.dev/password"))
 	if err != nil {
