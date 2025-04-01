@@ -1,6 +1,5 @@
 # macOS-specific files
 .DS_Store
-
 tmp
 config.monitoring
 cmd/config/alertmanager/config.yml
