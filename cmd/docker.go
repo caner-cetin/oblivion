@@ -10,7 +10,6 @@ import (
 	"io"
 	"io/fs"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -213,7 +212,6 @@ func createBuildContext(filesystem fs.FS, dir string) (*bytes.Buffer, error) {
 		if closeErr := tw.Close(); closeErr != nil {
 			err := fmt.Errorf("failed to close tar writer: %w", closeErr)
 			log.Error().Err(err).Msg("error closing tar writer")
-			return
 		}
 	}()
 
@@ -224,24 +222,24 @@ func createBuildContext(filesystem fs.FS, dir string) (*bytes.Buffer, error) {
 		if d.IsDir() {
 			return nil
 		}
-		relPath, err := filepath.Rel(dir, path)
-		if err != nil {
-			return fmt.Errorf("failed to get relative path: %w", err)
-		}
-		data, err := os.ReadFile(path)
+
+		data, err := fs.ReadFile(filesystem, path)
 		if err != nil {
 			return fmt.Errorf("failed to read file %s: %w", path, err)
 		}
+
 		info, err := d.Info()
 		if err != nil {
 			return fmt.Errorf("failed to get info for file %s: %w", path, err)
 		}
+
 		header := &tar.Header{
-			Name:    relPath,
+			Name:    path,
 			Size:    info.Size(),
 			Mode:    int64(info.Mode()),
 			ModTime: info.ModTime(),
 		}
+
 		if err := tw.WriteHeader(header); err != nil {
 			return fmt.Errorf("failed to write tar header: %w", err)
 		}
@@ -252,9 +250,11 @@ func createBuildContext(filesystem fs.FS, dir string) (*bytes.Buffer, error) {
 
 		return nil
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to walk context path: %w", err)
 	}
+
 	return buf, nil
 }
 
