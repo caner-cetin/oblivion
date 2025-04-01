@@ -87,7 +87,7 @@ func playgroundUp(cmd *cobra.Command, args []string) {
 				// sorry for this sequence
 				"HF_TOKEN=" + secrets.IndividualResponses[hf_key_ref].Content.Secret,
 				"HF_MODEL_URL=" + cfg.Playground.Backend.HFModelUrl,
-				"REDIS_URL=" + fmt.Sprintf("http://%s:%s/2", cfg.Dragonfly.ContainerName, cfg.Dragonfly.Port),
+				"REDIS_URL=" + fmt.Sprintf("redis://%s:%s/2", cfg.Dragonfly.ContainerName, cfg.Dragonfly.Port),
 				"REDIS_PASSWORD=" + secrets.IndividualResponses[redis_ref].Content.Secret,
 				"DATABASE_URL=" + fmt.Sprintf("postgres://%s:%s@%s:%s/playground", pg_secrets.Role.User, pg_secrets.Role.Password, cfg.Postgres.Primary.Name, cfg.Postgres.Primary.Port),
 				"LOKI_URL=" + fmt.Sprintf("http://%s:%s/loki/api/v1/push", cfg.Observer.ContainerNames.Loki, cfg.Observer.Ports.Loki),
