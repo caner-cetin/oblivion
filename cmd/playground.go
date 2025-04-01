@@ -54,7 +54,7 @@ func playgroundUp(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	pg_secrets, err := app.loadPostgresSecrets(internal.Ptr("/Postgres/code.cansu.dev/username"), internal.Ptr("/Postgres/code.cansu.dev/password"))
+	pg_secrets, err := app.loadPostgresSecrets(internal.Ptr("/Postgres/Playground/username"), internal.Ptr("/Postgres/Playground/password"))
 	if err != nil {
 		log.Error().Err(err).Msg("failed to get postgres secrets")
 		return
