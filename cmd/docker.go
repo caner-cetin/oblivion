@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/fatih/color"
+	git "github.com/go-git/go-git/v5"
 	v1 "github.com/moby/docker-image-spec/specs-go/v1"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -441,4 +443,51 @@ func (a *AppCtx) printPullProgressPretty(msg map[string]interface{}, progressMap
 	}
 
 	bar.SetCurrent(int64(current))
+}
+
+func (a *AppCtx) pullRepo(repo_path string) error {
+	if _, err := os.Stat(filepath.Join(repo_path, ".git")); err == nil {
+		// Directory exists with .git, open the repo and pull
+		repo, err := git.PlainOpen(repo_path)
+		if err != nil {
+			// If open fails, try removing and re-cloning
+			if err := os.RemoveAll(repo_path); err != nil {
+				return fmt.Errorf("failed to remove existing repository directory: %w", err)
+			}
+			return fmt.Errorf("failed to open existing repository: %w", err)
+			// Will fall through to clone
+		} else {
+			// Repository opened successfully, pull latest
+			w, err := repo.Worktree()
+			if err != nil {
+				return fmt.Errorf("failed to get worktree: %w", err)
+			}
+
+			err = w.Pull(&git.PullOptions{Force: true})
+			if err != nil && err != git.NoErrAlreadyUpToDate {
+				return fmt.Errorf("failed to pull updates: %w", err)
+			}
+
+			return nil
+		}
+	} else if !os.IsNotExist(err) {
+		// Some other error occurred
+		return fmt.Errorf("failed to check if repository directory exists: %w", err)
+	} else {
+		// Make sure the parent directory exists
+		if err := os.MkdirAll(repo_path, 0755); err != nil {
+			return fmt.Errorf("failed to create repository directory: %w", err)
+		}
+	}
+
+	// Directory doesn't exist or we decided to re-clone, clone it
+	_, err := git.PlainClone(repo_path, false, &git.CloneOptions{
+		URL:      cfg.Playground.Backend.Repository,
+		Progress: os.Stdout, // Optional: Shows progress
+	})
+	if err != nil {
+		return fmt.Errorf("failed to clone repository: %w", err)
+	}
+
+	return nil
 }

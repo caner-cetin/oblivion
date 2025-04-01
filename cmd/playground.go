@@ -11,7 +11,6 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/go-connections/nat"
 	"github.com/fatih/color"
-	git "github.com/libgit2/git2go/v34"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
@@ -44,20 +43,8 @@ func playgroundUp(cmd *cobra.Command, args []string) {
 		return
 	}
 	tmp_repo_dir := filepath.Join(os.TempDir(), "code.cansu.dev")
-	if err := os.Remove(tmp_repo_dir); err != nil {
-		if !os.IsNotExist(err) {
-			log.Error().Err(err).Send()
-			return
-		}
-	}
-	_, err = git.Clone(cfg.Playground.Backend.Repository, tmp_repo_dir, &git.CloneOptions{
-		CheckoutOptions: git.CheckoutOptions{
-			Strategy:        git.CheckoutForce,
-			TargetDirectory: tmp_repo_dir,
-		},
-	})
-	if err != nil {
-		log.Error().Err(err).Msg("failed to clone repo")
+	if err := app.pullRepo(tmp_repo_dir); err != nil {
+		log.Error().Err(err).Send()
 		return
 	}
 	backend_dir := filepath.Join(tmp_repo_dir, "backend")
@@ -89,7 +76,11 @@ func playgroundUp(cmd *cobra.Command, args []string) {
 				"HF_MODEL_URL=" + cfg.Playground.Backend.HFModelUrl,
 				"REDIS_URL=" + fmt.Sprintf("redis://%s:%s/2", cfg.Dragonfly.ContainerName, cfg.Dragonfly.Port),
 				"REDIS_PASSWORD=" + secrets.IndividualResponses[redis_ref].Content.Secret,
-				"DATABASE_URL=" + fmt.Sprintf("postgres://%s:%s@%s:%s/playground", pg_secrets.Role.User, pg_secrets.Role.Password, cfg.Postgres.Primary.Name, cfg.Postgres.Primary.Port),
+				"DATABASE_URL=" + fmt.Sprintf("postgres://%s:%s@%s:%s/playground?sslmode=disable",
+					pg_secrets.Role.User,
+					pg_secrets.Role.Password,
+					cfg.Postgres.Primary.Name,
+					cfg.Postgres.Primary.Port),
 				"LOKI_URL=" + fmt.Sprintf("http://%s:%s/loki/api/v1/push", cfg.Observer.ContainerNames.Loki, cfg.Observer.Ports.Loki),
 			},
 
