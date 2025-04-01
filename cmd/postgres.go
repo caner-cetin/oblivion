@@ -68,42 +68,57 @@ func postgresUp(cmd *cobra.Command, args []string) {
 // omit the prefix (op://Server etc.) from user and password references
 func (a *AppCtx) loadPostgresSecrets(user_ref *string, password_ref *string) (*postgresCredentials, error) {
 	var also_resolve_custom_role = user_ref != nil && password_ref != nil
+
+	const (
+		replicator_username_ref = "/Postgres/Replicator/username"
+		replicator_password_ref = "/Postgres/Replicator/password"
+		root_username_ref       = "/Postgres/Root/username"
+		root_password_ref       = "/Postgres/Root/password"
+		bouncer_username_ref    = "/Postgres/Bouncer/username"
+		bouncer_password_ref    = "/Postgres/Bouncer/password"
+	)
+
 	keys := []string{
-		"/Postgres/Replicator/username",
-		"/Postgres/Replicator/password",
-		"/Postgres/Root/username",
-		"/Postgres/Root/password",
-		"/Postgres/Bouncer/username",
-		"/Postgres/Bouncer/password",
+		replicator_username_ref,
+		replicator_password_ref,
+		root_username_ref,
+		root_password_ref,
+		bouncer_username_ref,
+		bouncer_password_ref,
 	}
+
 	if also_resolve_custom_role {
 		keys = append(keys, *user_ref)
 		keys = append(keys, *password_ref)
 	}
-	secrets, err := a.resolveSecrets(keys)
+
+	prefixed_keys, secrets, err := a.resolveSecrets(keys)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve postgres credentials: %w", err)
 	}
+
 	var credentials = postgresCredentials{
 		Replicator: userPasswordPair{
-			User:     secrets[0],
-			Password: secrets[1],
+			User:     secrets[prefixed_keys[replicator_username_ref]].Content.Secret,
+			Password: secrets[prefixed_keys[replicator_password_ref]].Content.Secret,
 		},
 		Postgres: userPasswordPair{
-			User:     secrets[2],
-			Password: secrets[3],
+			User:     secrets[prefixed_keys[root_username_ref]].Content.Secret,
+			Password: secrets[prefixed_keys[root_password_ref]].Content.Secret,
 		},
 		Bouncer: userPasswordPair{
-			User:     secrets[4],
-			Password: secrets[5],
+			User:     secrets[prefixed_keys[bouncer_username_ref]].Content.Secret,
+			Password: secrets[prefixed_keys[bouncer_password_ref]].Content.Secret,
 		},
 	}
+
 	if also_resolve_custom_role {
 		credentials.Role = &userPasswordPair{
-			User:     secrets[6],
-			Password: secrets[7],
+			User:     secrets[prefixed_keys[*user_ref]].Content.Secret,
+			Password: secrets[prefixed_keys[*password_ref]].Content.Secret,
 		}
 	}
+
 	return &credentials, nil
 }
 

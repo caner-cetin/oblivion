@@ -4,37 +4,29 @@ import (
 	"fmt"
 	"strings"
 	"unicode"
+
+	"github.com/1password/onepassword-sdk-go"
 )
 
-// returns secrets in order of original references
-// e.g:
-//
-//		secrets, err := a.resolveSecrets(
-//			[]string{
-//				"/Postgres/Replicator/username",
-//				"/Postgres/Replicator/password"
-//			},
-//	)
-//
-// secrets[0] is replicator username and so on.
-func (a *AppCtx) resolveSecrets(keys []string) ([]string, error) {
+// todo: comment
+func (a *AppCtx) resolveSecrets(keys []string) (map[string]string, map[string]onepassword.Response[onepassword.ResolvedReference, onepassword.ResolveReferenceError], error) {
 	var prefixedKeys = make([]string, 0, len(keys))
 	for _, key := range keys {
 		prefixedKeys = append(prefixedKeys, a.Vault.Prefix+strings.TrimSpace(key))
 	}
 	secretsResponse, err := a.Vault.Client.Secrets().ResolveAll(a.Context, prefixedKeys)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve secrets: %w", err)
+		return nil, nil, fmt.Errorf("failed to resolve secrets: %w", err)
 	}
-	var secrets = make([]string, len(prefixedKeys))
-	for _, key := range prefixedKeys {
-		secret := secretsResponse.IndividualResponses[key]
-		if secret.Error != nil {
-			return nil, fmt.Errorf("error: %s", secret.Error.Type)
-		}
-		cleanedSecret := strings.TrimSpace(secret.Content.Secret)
-		cleanedSecret = strings.TrimFunc(cleanedSecret, func(r rune) bool { return unicode.IsControl(r) })
-		secrets = append(secrets, cleanedSecret)
+	for _, v := range secretsResponse.IndividualResponses {
+		secret := v.Content.Secret
+		secret = strings.TrimSpace(secret)
+		secret = strings.TrimFunc(secret, func(r rune) bool { return unicode.IsControl(r) })
+		v.Content.Secret = secret
 	}
-	return secrets, nil
+	var pfKeyMap = make(map[string]string)
+	for i, k := range prefixedKeys {
+		pfKeyMap[keys[i]] = k
+	}
+	return pfKeyMap, secretsResponse.IndividualResponses, nil
 }
