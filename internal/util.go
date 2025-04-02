@@ -149,7 +149,6 @@ func CloseReader(r io.ReadCloser) {
 	}
 }
 
-
-func Ptr[T any](v T) *T{
+func Ptr[T any](v T) *T {
 	return &v
 }

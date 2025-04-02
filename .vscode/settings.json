@@ -1,7 +1,12 @@
 {
   "go.lintTool": "golangci-lint",
-  "go.lintFlags": [
-    "--fast",
-    "--exclude-use-default"
-  ],
+  "go.lintFlags": ["--fast", "--exclude-use-default"],
+  "yaml.schemas": {
+    "file:///c%3A/Users/emosc/.vscode/extensions/atlassian.atlascode-3.0.10/resources/schemas/pipelines-schema.json": "bitbucket-pipelines.yml",
+    "https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/ansible.json#/$defs/playbook": [
+      "file:///Users/canercetin/Git/oblivion/playbooks/webservers.yml",
+      "file:///Users/canercetin/Git/oblivion/playbooks/nginx/webservers.yml",
+      "file:///Users/canercetin/Git/oblivion/ansible/nginx/webservers.yml"
+    ]
+  }
 }

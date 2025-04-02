@@ -3,7 +3,6 @@
 **A personalized toolkit for provisioning and managing Docker services on a server environment (`*.cansu.dev/*`), primarily built for the my specific needs.**
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/caner-cetin/oblivion)](https://goreportcard.com/report/github.com/caner-cetin/oblivion)
-<!-- Add other badges if you have CI/CD, etc. -->
 
 ---
 

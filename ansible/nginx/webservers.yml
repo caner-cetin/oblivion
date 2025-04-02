@@ -1,0 +1,59 @@
+- name: "Configure webserver with NGINX"
+  hosts: "webservers"
+  become: true
+  gather_facts: false
+
+  vars:
+    key_file: nginx.key
+    cert_file: nginx.crt
+    tls_dir: /etc/nginx/ssl
+    conf_file: /etc/nginx/sites-available/default
+    server_name: localhost
+    
+  tasks:
+    - name: "ensure nginx is installed"
+      package: 
+        name: nginx
+        update_cache: true
+
+    - name: "create TLS directory"
+      file:
+        path: "{{ tls_dir }}"
+        state: directory
+        mode: '0750'
+
+    - name: "copy TLS files"
+      copy:
+        src: "{{ item }}"
+        dest: "{{ tls_dir }}"
+        mode: '600'
+      loop:
+        - "{{ key_file }}"
+        - "{{ cert_file }}"
+      notify: "restart nginx"
+    
+    - name: "copy nginx config template"
+      template:
+        src: nginx.conf.j2
+        dest: "{{ conf_file }}"
+        mode: "0644"
+      notify: "restart nginx"
+    
+    - name: "enable config"
+      file: 
+        src: /etc/nginx/sites-available/default
+        dest: /etc/nginx/sites-enabled/default
+        state: link
+      
+    - name: "copy index.html"
+      template: 
+        src: index.html.j2
+        dest: /usr/share/nginx/html/index.html
+    - name: "restart nginx"
+      meta: flush_handlers
+      
+  handlers:
+    - name: "restart nginx"
+      service:
+        name: nginx
+        state: restarted
